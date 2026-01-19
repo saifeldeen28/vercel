@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     // ... (Previous Shopify data capture code)
 
     // 3. Send to Green API
-    const greenApiResponse = await fetch(https://7105.api.greenapi.com, {
+    const greenApiResponse = await fetch(`https://api.green-api.com/waInstance7105482130/sendMessage/162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
