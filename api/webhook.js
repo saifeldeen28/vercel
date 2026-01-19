@@ -19,11 +19,11 @@ export default async function handler(req, res) {
     // ... (Previous Shopify data capture code)
 
     // 3. Send to Green API
-    const greenApiResponse = await fetch(greenApiUrl, {
+    const greenApiResponse = await fetch(https://7105.api.greenapi.com, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "2010XXXXXXXX@c.us",
+        chatId: "201023238155@c.us",
         message: message
       })
     });
