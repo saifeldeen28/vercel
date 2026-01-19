@@ -16,16 +16,25 @@ export default async function handler(req, res) {
                     `*Total:* ${total_price}\n\n` +
                     `*Items:*\n${productList}`;
 
+    // ... (Previous Shopify data capture code)
+
     // 3. Send to Green API
-    const greenApiResponse = await fetch('https://api.green-api.com/waInstance{{7105482130}}/sendMessage/{{162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae}}', {
+    const greenApiResponse = await fetch(greenApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "201023238155@c.us", // Replace with your partner's number
+        chatId: "2010XXXXXXXX@c.us",
         message: message
       })
     });
-
+    
+    // NEW: Safety check before parsing JSON
+    if (!greenApiResponse.ok) {
+      const errorText = await greenApiResponse.text(); // Read the HTML error
+      console.error(`Green API Error (${greenApiResponse.status}):`, errorText);
+      return res.status(greenApiResponse.status).json({ error: "Green API failed", details: errorText });
+    }
+    
     const result = await greenApiResponse.json();
     return res.status(200).json({ success: true, result });
 
