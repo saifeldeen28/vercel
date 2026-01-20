@@ -28,8 +28,8 @@ export default async function handler(req, res) {
                     `${customer.first_name} ${customer.last_name}\n` +
                     `${customer.phone || shipping_address?.phone || 'بدون رقم هاتف'}\n\n` +
                     `العنوان: \n${address}\n\n` +
-                    `ملحوظة: ${note || 'لا توجد ملاحظات'}\n\n` +
-                    `يتصور`;
+                    `ملحوظة: ${note || 'لا توجد ملاحظات'}\n\n`
+                    ;
 
     // 5. الإرسال إلى Green API
     const greenApiUrl = `https://api.green-api.com/waInstance7105482130/sendMessage/162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae`;
