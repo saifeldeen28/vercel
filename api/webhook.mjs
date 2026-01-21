@@ -13,7 +13,7 @@ export default async function handler(req, res) {
       line_items 
     } = req.body;
 
-    // 1. Extract Delivery Date from note_attributes
+    // 1. Extract Delivery Date from Note Attributes (Main Date Picker)
     const deliveryAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
@@ -27,32 +27,56 @@ export default async function handler(req, res) {
         : deliveryAttribute.value;
     }
 
-    // 2. Format Products and App-Specific Fields (Gift Messages, Stickers, etc.)
+    // 2. Format Products, Variants, and Smart Filter Properties
     let productsSummary = "";
     line_items.forEach((item, index) => {
       productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
+      
+      // Add Variant (Size, Color, Type)
+      if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
+        productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
+      }
+      
       productsSummary += `الكمية: ${item.quantity}\n`;
       
-      // Check for app properties (Gift message, sticker name, balloon, etc.)
+      // Property Filtering (Logic to keep Gift Messages but hide App IDs)
       if (item.properties && item.properties.length > 0) {
         item.properties.forEach(prop => {
-          productsSummary += `🔹 _${prop.name}:_ ${prop.value}\n`;
+          const key = prop.name;
+          const keyLower = key.toLowerCase();
+
+          // Blacklist technical junk
+          const isJunk = keyLower.includes('appid') || 
+                         keyLower.includes('options') || 
+                         keyLower.includes('cl_');
+
+          // Whitelist human-readable custom data
+          const isImportant = keyLower.includes('message') || 
+                              keyLower.includes('name') || 
+                              keyLower.includes('sticker') ||
+                              keyLower.includes('balloon') ||
+                              keyLower.includes('كارت') ||
+                              keyLower.includes('gift');
+
+          if (isImportant || (!isJunk && !key.startsWith('__'))) {
+            // Clean the label (removes underscores like _Gift Message -> Gift Message)
+            const cleanLabel = key.replace(/^_+/, ''); 
+            productsSummary += `📝 _${cleanLabel}:_ ${prop.value}\n`;
+          }
         });
       }
       productsSummary += `\n`;
     });
 
-    // 3. Format Address
+    // 3. Format Address and Phone Numbers
     const address = shipping_address ? 
       `${shipping_address.address1}${shipping_address.address2 ? ' ، ' + shipping_address.address2 : ''}\n${shipping_address.city}` 
       : 'لا يوجد عنوان';
 
-    // 4. Build the Final Message
-    // 1. Extract Phone Numbers
     const customerPhone = customer.phone || 'غير مسجل';
     const shippingPhone = shipping_address?.phone || 'غير مسجل';
 
-    // 2. Build the Message Template
+    // 4. Build the Final WhatsApp Message Template
     const message = `*طلب جديد - ${name}* 🚀\n\n` +
                     `*يوم التوصيل:* ${dayName}\n` +
                     `*العميل:* ${customer.first_name} ${customer.last_name}\n` +
@@ -60,7 +84,7 @@ export default async function handler(req, res) {
                     `*رقم الشحن:* ${shippingPhone}\n\n` +
                     `*المنتجات:*\n${productsSummary}` +
                     `*العنوان:* \n${address}\n\n` +
-                    `*ملحوظة العميل:* ${note || 'لا توجد ملاحظات'}`;;
+                    `*ملحوظة العميل:* ${note || 'لا توجد ملاحظات'}`;
 
     // 5. Send to Green API
     const greenApiUrl = `https://api.green-api.com/waInstance7105482130/sendMessage/162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae`;
@@ -74,10 +98,14 @@ export default async function handler(req, res) {
       })
     });
 
+    if (!response.ok) {
+      throw new Error(`Green API failed with status ${response.status}`);
+    }
+
     return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('Logic Error:', error);
+    console.error('Execution Error:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
