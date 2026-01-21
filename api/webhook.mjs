@@ -87,13 +87,13 @@ export default async function handler(req, res) {
                     `*ملحوظة العميل:* ${note || 'لا توجد ملاحظات'}`;
 
     // 5. Send to Green API
-    const greenApiUrl = `https://api.green-api.com/waInstance7105482130/sendMessage/162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae`;
+    const greenApiUrl = `https://api.green-api.com/waInstanceREDACTED_INSTANCE_ID/sendMessage/fa3a7a65a16248409e35fa8c8ed25ec086ebda5b67bc437f9f`;
 
     const response = await fetch(greenApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "201023238155@c.us",
+        chatId: "201142824845-1611407809@g.us",
         message: message
       })
     });
