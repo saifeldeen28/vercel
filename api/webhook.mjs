@@ -104,7 +104,7 @@ line_items.forEach((item, index) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "201142824845-1611407809@g.us",
+        chatId: "201023238155@c.us",
         message: message
       })
     });
