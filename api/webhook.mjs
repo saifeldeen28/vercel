@@ -28,16 +28,27 @@ export default async function handler(req, res) {
     }
 
     // 2. Format Products, Variants, and Smart Filter Properties
-    let productsSummary = "";
-    line_items.forEach((item, index) => {
-      productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
-      
-      // Add Variant (Size, Color, Type)
-      if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
-        productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
-      }
-      
-      productsSummary += `الكمية: ${item.quantity}\n`;
+    // 2. Format Products, Variants, and Smart Filter Properties
+let productsSummary = "";
+line_items.forEach((item, index) => {
+  productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
+  
+  // Dynamic Option Name Logic
+  if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
+    // Check if the webhook provided the options array (standard for Shopify Order webhooks)
+    if (item.options && item.options.length > 0) {
+      item.options.forEach(opt => {
+        productsSummary += `🔹 *${opt.name}:* ${opt.value}\n`;
+      });
+    } else {
+      // Fallback: If options aren't available, use the generic label
+      productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
+    }
+  }
+  
+  productsSummary += `الكمية: ${item.quantity}\n`;
+  
+  // ... rest of your property filtering logic ...
       
       // Property Filtering (Logic to keep Gift Messages but hide App IDs)
       if (item.properties && item.properties.length > 0) {
