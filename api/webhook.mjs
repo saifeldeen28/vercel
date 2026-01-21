@@ -9,14 +9,11 @@ export default async function handler(req, res) {
       customer, 
       shipping_address, 
       note, 
-      note_attributes 
+      note_attributes,
+      line_items 
     } = req.body;
 
-    // 1. Debugging: Log all attributes to Vercel console to see the exact key name
-    console.log("Order Attributes:", JSON.stringify(note_attributes));
-
-    // 2. Extract Delivery Date
-    // We check common keys used in custom coding: 'delivery date', 'delivery-date', 'date'
+    // 1. Extract Delivery Date from note_attributes
     const deliveryAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
@@ -24,28 +21,46 @@ export default async function handler(req, res) {
 
     let dayName = "غير محدد";
     if (deliveryAttribute?.value) {
-      // Try to parse the date string from the custom code
       const deliveryDate = new Date(deliveryAttribute.value);
-      if (!isNaN(deliveryDate)) {
-        dayName = new Intl.DateTimeFormat('ar-EG', { weekday: 'long' }).format(deliveryDate);
-      } else {
-        // If it's a plain string like "Saturday", just use it directly
-        dayName = deliveryAttribute.value;
-      }
+      dayName = !isNaN(deliveryDate) 
+        ? new Intl.DateTimeFormat('ar-EG', { weekday: 'long' }).format(deliveryDate)
+        : deliveryAttribute.value;
     }
+
+    // 2. Format Products and App-Specific Fields (Gift Messages, Stickers, etc.)
+    let productsSummary = "";
+    line_items.forEach((item, index) => {
+      productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
+      productsSummary += `الكمية: ${item.quantity}\n`;
+      
+      // Check for app properties (Gift message, sticker name, balloon, etc.)
+      if (item.properties && item.properties.length > 0) {
+        item.properties.forEach(prop => {
+          productsSummary += `🔹 _${prop.name}:_ ${prop.value}\n`;
+        });
+      }
+      productsSummary += `\n`;
+    });
 
     // 3. Format Address
     const address = shipping_address ? 
       `${shipping_address.address1}${shipping_address.address2 ? ' ، ' + shipping_address.address2 : ''}\n${shipping_address.city}` 
       : 'لا يوجد عنوان';
 
-    // 4. Build the WhatsApp Message
-    const message = `*طلب جديد - ${name}* \n\n` +
+    // 4. Build the Final Message
+    // 1. Extract Phone Numbers
+    const customerPhone = customer.phone || 'غير مسجل';
+    const shippingPhone = shipping_address?.phone || 'غير مسجل';
+
+    // 2. Build the Message Template
+    const message = `*طلب جديد - ${name}* 🚀\n\n` +
                     `*يوم التوصيل:* ${dayName}\n` +
                     `*العميل:* ${customer.first_name} ${customer.last_name}\n` +
-                    `*الهاتف:* ${customer.phone || shipping_address?.phone || 'بدون رقم هاتف'}\n\n` +
+                    `*رقم الحساب:* ${customerPhone}\n` +
+                    `*رقم الشحن:* ${shippingPhone}\n\n` +
+                    `*المنتجات:*\n${productsSummary}` +
                     `*العنوان:* \n${address}\n\n` +
-                    `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
+                    `*ملحوظة العميل:* ${note || 'لا توجد ملاحظات'}`;;
 
     // 5. Send to Green API
     const greenApiUrl = `https://api.green-api.com/waInstance7105482130/sendMessage/162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae`;
