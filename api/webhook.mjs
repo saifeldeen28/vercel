@@ -8,12 +8,31 @@ export default async function handler(req, res) {
       name, 
       customer, 
       shipping_address, 
+      billing_address, // Added billing address
       note, 
       note_attributes,
       line_items 
     } = req.body;
 
-    // 1. Extract Delivery Date from Note Attributes (Main Date Picker)
+    // --- NEW NAME PRIORITY LOGIC ---
+    // 1. Shipping Name -> 2. Billing Name -> 3. Account Name
+    const getPriorityName = () => {
+      if (shipping_address?.first_name || shipping_address?.last_name) {
+        return `${shipping_address.first_name || ''} ${shipping_address.last_name || ''}`.trim();
+      }
+      if (billing_address?.first_name || billing_address?.last_name) {
+        return `${billing_address.first_name || ''} ${billing_address.last_name || ''}`.trim();
+      }
+      if (customer?.first_name || customer?.last_name) {
+        return `${customer.first_name || ''} ${customer.last_name || ''}`.trim();
+      }
+      return "عميل غير معروف";
+    };
+
+    const displayName = getPriorityName();
+    // --------------------------------
+
+    // 1. Extract Delivery Date from Note Attributes
     const deliveryAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
@@ -28,49 +47,30 @@ export default async function handler(req, res) {
     }
 
     // 2. Format Products, Variants, and Smart Filter Properties
-    // 2. Format Products, Variants, and Smart Filter Properties
-let productsSummary = "";
-line_items.forEach((item, index) => {
-  productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
-  
-  // Dynamic Option Name Logic
-  if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
-    // Check if the webhook provided the options array (standard for Shopify Order webhooks)
-    if (item.options && item.options.length > 0) {
-      item.options.forEach(opt => {
-        productsSummary += `🔹 *${opt.name}:* ${opt.value}\n`;
-      });
-    } else {
-      // Fallback: If options aren't available, use the generic label
-      productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
-    }
-  }
-  
-  productsSummary += `الكمية: ${item.quantity}\n`;
-  
-  // ... rest of your property filtering logic ...
+    let productsSummary = "";
+    line_items.forEach((item, index) => {
+      productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
       
-      // Property Filtering (Logic to keep Gift Messages but hide App IDs)
+      if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
+        if (item.options && item.options.length > 0) {
+          item.options.forEach(opt => {
+            productsSummary += `🔹 *${opt.name}:* ${opt.value}\n`;
+          });
+        } else {
+          productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
+        }
+      }
+      
+      productsSummary += `الكمية: ${item.quantity}\n`;
+      
       if (item.properties && item.properties.length > 0) {
         item.properties.forEach(prop => {
           const key = prop.name;
           const keyLower = key.toLowerCase();
-
-          // Blacklist technical junk
-          const isJunk = keyLower.includes('appid') || 
-                         keyLower.includes('options') || 
-                         keyLower.includes('cl_');
-
-          // Whitelist human-readable custom data
-          const isImportant = keyLower.includes('message') || 
-                              keyLower.includes('name') || 
-                              keyLower.includes('sticker') ||
-                              keyLower.includes('balloon') ||
-                              keyLower.includes('كارت') ||
-                              keyLower.includes('gift');
+          const isJunk = keyLower.includes('appid') || keyLower.includes('options') || keyLower.includes('cl_');
+          const isImportant = keyLower.includes('message') || keyLower.includes('name') || keyLower.includes('sticker') || keyLower.includes('balloon') || keyLower.includes('كارت') || keyLower.includes('gift');
 
           if (isImportant || (!isJunk && !key.startsWith('__'))) {
-            // Clean the label (removes underscores like _Gift Message -> Gift Message)
             const cleanLabel = key.replace(/^_+/, ''); 
             productsSummary += `📝 _${cleanLabel}:_ ${prop.value}\n`;
           }
@@ -84,13 +84,14 @@ line_items.forEach((item, index) => {
       `${shipping_address.address1}${shipping_address.address2 ? ' ، ' + shipping_address.address2 : ''}\n${shipping_address.city}` 
       : 'لا يوجد عنوان';
 
-    const customerPhone = customer.phone || 'غير مسجل';
+    const customerPhone = customer?.phone || 'غير مسجل';
     const shippingPhone = shipping_address?.phone || 'غير مسجل';
 
     // 4. Build the Final WhatsApp Message Template
+    // Used the new "displayName" here
     const message = `*طلب جديد - ${name}* 🚀\n\n` +
                     `*يوم التوصيل:* ${dayName}\n` +
-                    `*العميل:* ${customer.first_name} ${customer.last_name}\n` +
+                    `*العميل:* ${displayName}\n` + 
                     `*رقم الحساب:* ${customerPhone}\n` +
                     `*رقم الشحن:* ${shippingPhone}\n\n` +
                     `*المنتجات:*\n${productsSummary}` +
