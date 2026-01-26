@@ -1,24 +1,38 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  // --- CONFIGURATION ---
+  // --- 1. CONFIGURATION ---
   const INSTANCE_ID = 'REDACTED_INSTANCE_ID';
   const TOKEN = 'fa3a7a65a16248409e35fa8c8ed25ec086ebda5b67bc437f9f';
   const CHAT_ID = "120363408155697195@g.us";
 
-  // Replace with your revealed shpat_ token
+  // Remember to use your NEW shpat_ token here
   const SHOPIFY_TOKEN = 'REDACTED_SHOPIFY_TOKEN'; 
   const STORE_DOMAIN = 'breakfastgift.myshopify.com'; 
 
   try {
-    const { name, customer, shipping_address, billing_address, note, note_attributes, line_items } = req.body;
+    const { 
+      name, 
+      customer, 
+      shipping_address, 
+      billing_address, 
+      note, 
+      note_attributes, 
+      line_items,
+      payment_gateway_names // New field for payment method
+    } = req.body;
 
     const getDisplayName = () => {
       const addr = shipping_address || billing_address || customer || {};
       return `${addr.first_name || ''} ${addr.last_name || ''}`.trim() || "عميل غير معروف";
     };
 
-    // 1. Send Unique Product Photos First
+    // Extract the primary payment method
+    const paymentMethod = payment_gateway_names?.length > 0 
+      ? payment_gateway_names[0] 
+      : "غير محدد";
+
+    // --- 2. SEND UNIQUE PRODUCT PHOTOS FIRST ---
     const processedProductIds = new Set();
     for (const item of line_items) {
       if (!processedProductIds.has(item.product_id)) {
@@ -38,31 +52,34 @@ export default async function handler(req, res) {
                 chatId: CHAT_ID,
                 urlFile: imageUrl,
                 fileName: `${item.title}.jpg`,
-                caption: `صورة المنتج: ${item.title}`
+                caption: `📸 المنتج: ${item.title}`
               })
             });
             processedProductIds.add(item.product_id);
           }
-        } catch (e) { console.error("Image Error:", e); }
+        } catch (e) { console.error("Image Fetch Error:", e); }
       }
     }
 
-    // 2. Format Products Summary
+    // --- 3. FORMAT TEXT SUMMARY ---
     let productsSummary = "";
     line_items.forEach((item, i) => {
       productsSummary += `📦 *المنتج ${i + 1}:* ${item.title}\n`;
-      if (item.variant_title && item.variant_title !== "Default Title") productsSummary += `🔹 النوع: ${item.variant_title}\n`;
+      if (item.variant_title && item.variant_title !== "Default Title") {
+        productsSummary += `🔹 النوع: ${item.variant_title}\n`;
+      }
       productsSummary += `الكمية: ${item.quantity}\n\n`;
     });
 
-    // 3. Send Final Summary
     const message = `*طلب جديد - ${name}* 🚀\n\n` +
+                    `*طريقة الدفع:* ${paymentMethod}\n` + // Added Payment Method
                     `*العميل:* ${getDisplayName()}\n` +
                     `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
                     `*المنتجات:*\n${productsSummary}` +
                     `*العنوان:* \n${shipping_address?.address1 || 'لا يوجد عنوان'}\n\n` +
                     `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
 
+    // --- 4. SEND FINAL SUMMARY ---
     await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
