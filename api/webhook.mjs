@@ -3,19 +3,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
+  const INSTANCE_ID = 'REDACTED_INSTANCE_ID';
+  const TOKEN = 'fa3a7a65a16248409e35fa8c8ed25ec086ebda5b67bc437f9f';
+  const CHAT_ID = "120363408155697195@g.us";
+
   try {
     const { 
       name, 
       customer, 
       shipping_address, 
-      billing_address, // Added billing address
+      billing_address, 
       note, 
       note_attributes,
       line_items 
     } = req.body;
 
-    // --- NEW NAME PRIORITY LOGIC ---
-    // 1. Shipping Name -> 2. Billing Name -> 3. Account Name
     const getPriorityName = () => {
       if (shipping_address?.first_name || shipping_address?.last_name) {
         return `${shipping_address.first_name || ''} ${shipping_address.last_name || ''}`.trim();
@@ -30,9 +32,32 @@ export default async function handler(req, res) {
     };
 
     const displayName = getPriorityName();
-    // --------------------------------
 
-    // 1. Extract Delivery Date from Note Attributes
+    // 1. Send Unique Photos First
+    const processedProductIds = new Set();
+    
+    for (const item of line_items) {
+      // Use product_id to ensure uniqueness (or variant_id if photos differ by variant)
+      if (!processedProductIds.has(item.product_id) && item.image?.src) {
+        try {
+          await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId: CHAT_ID,
+              urlFile: item.image.src,
+              fileName: `${item.title}.jpg`,
+              caption: `صورة المنتج: ${item.title}`
+            })
+          });
+          processedProductIds.add(item.product_id);
+        } catch (imgErr) {
+          console.error(`Failed to send image for ${item.title}:`, imgErr);
+        }
+      }
+    }
+
+    // 2. Format Delivery Date
     const deliveryAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
@@ -46,40 +71,29 @@ export default async function handler(req, res) {
         : deliveryAttribute.value;
     }
 
-    // 2. Format Products, Variants, and Smart Filter Properties
+    // 3. Format Products Summary
     let productsSummary = "";
     line_items.forEach((item, index) => {
       productsSummary += `📦 *المنتج ${index + 1}:* ${item.title}\n`;
       
       if (item.variant_title && item.variant_title !== "" && item.variant_title !== "Default Title") {
-        if (item.options && item.options.length > 0) {
-          item.options.forEach(opt => {
-            productsSummary += `🔹 *${opt.name}:* ${opt.value}\n`;
-          });
-        } else {
-          productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
-        }
+        productsSummary += `🔹 *النوع:* ${item.variant_title}\n`;
       }
       
       productsSummary += `الكمية: ${item.quantity}\n`;
       
       if (item.properties && item.properties.length > 0) {
         item.properties.forEach(prop => {
-          const key = prop.name;
-          const keyLower = key.toLowerCase();
+          const keyLower = prop.name.toLowerCase();
           const isJunk = keyLower.includes('appid') || keyLower.includes('options') || keyLower.includes('cl_');
-          const isImportant = keyLower.includes('message') || keyLower.includes('name') || keyLower.includes('sticker') || keyLower.includes('balloon') || keyLower.includes('كارت') || keyLower.includes('gift');
-
-          if (isImportant || (!isJunk && !key.startsWith('__'))) {
-            const cleanLabel = key.replace(/^_+/, ''); 
-            productsSummary += `📝 _${cleanLabel}:_ ${prop.value}\n`;
+          if (!isJunk && !prop.name.startsWith('__')) {
+            productsSummary += `📝 _${prop.name.replace(/^_+/, '')}:_ ${prop.value}\n`;
           }
         });
       }
       productsSummary += `\n`;
     });
 
-    // 3. Format Address and Phone Numbers
     const address = shipping_address ? 
       `${shipping_address.address1}${shipping_address.address2 ? ' ، ' + shipping_address.address2 : ''}\n${shipping_address.city}` 
       : 'لا يوجد عنوان';
@@ -87,8 +101,7 @@ export default async function handler(req, res) {
     const customerPhone = customer?.phone || 'غير مسجل';
     const shippingPhone = shipping_address?.phone || 'غير مسجل';
 
-    // 4. Build the Final WhatsApp Message Template
-    // Used the new "displayName" here
+    // 4. Build and Send Final Message
     const message = `*طلب جديد - ${name}* 🚀\n\n` +
                     `*يوم التوصيل:* ${dayName}\n` +
                     `*العميل:* ${displayName}\n` + 
@@ -98,20 +111,17 @@ export default async function handler(req, res) {
                     `*العنوان:* \n${address}\n\n` +
                     `*ملحوظة العميل:* ${note || 'لا توجد ملاحظات'}`;
 
-    // 5. Send to Green API
-    const greenApiUrl = `https://api.green-api.com/waInstanceREDACTED_INSTANCE_ID/sendMessage/fa3a7a65a16248409e35fa8c8ed25ec086ebda5b67bc437f9f`;
-
-    const response = await fetch(greenApiUrl, {
+    const textResponse = await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "120363408155697195@g.us",
+        chatId: CHAT_ID,
         message: message
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Green API failed with status ${response.status}`);
+    if (!textResponse.ok) {
+      throw new Error(`Green API failed with status ${textResponse.status}`);
     }
 
     return res.status(200).json({ success: true });
