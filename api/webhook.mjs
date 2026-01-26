@@ -11,7 +11,8 @@ export default async function handler(req, res) {
   try {
     const { 
       name, customer, shipping_address, billing_address, 
-      note, note_attributes, line_items, payment_gateway_names 
+      note, note_attributes, line_items, payment_gateway_names,
+      total_price, currency // Extracting price and currency
     } = req.body;
 
     // A. Priority Name Logic
@@ -34,8 +35,15 @@ export default async function handler(req, res) {
         : deliveryAttribute.value;
     }
 
-    // C. Payment Method
+    // C. Payment & Total Logic
     const paymentMethod = payment_gateway_names?.length > 0 ? payment_gateway_names[0] : "غير محدد";
+    
+    // Check if it's Cash on Delivery
+    const isCOD = paymentMethod.toLowerCase().includes('cash') || 
+                  paymentMethod.toLowerCase().includes('manual') || 
+                  paymentMethod.includes('الدفع عند الاستلام');
+    
+    const totalDisplay = isCOD ? `\n💰 *المبلغ المطلوب (COD):* ${total_price} ${currency}` : "";
 
     // --- 2. SEND UNIQUE PRODUCT PHOTOS ---
     const processedProductIds = new Set();
@@ -70,19 +78,15 @@ export default async function handler(req, res) {
     let productsSummary = "";
     line_items.forEach((item, i) => {
       productsSummary += `📦 *المنتج ${i + 1}:* ${item.title}\n`;
-      
       if (item.variant_title && item.variant_title !== "Default Title") {
         productsSummary += `🔹 النوع: ${item.variant_title}\n`;
       }
-      
       productsSummary += `الكمية: ${item.quantity}\n`;
 
-      // Filter and add properties (Messages, Stickers, etc.)
       if (item.properties?.length > 0) {
         item.properties.forEach(prop => {
           const key = prop.name.toLowerCase();
-          const isJunk = key.includes('appid') || key.includes('cl_');
-          if (!isJunk && !prop.name.startsWith('__')) {
+          if (!key.includes('appid') && !key.includes('cl_') && !prop.name.startsWith('__')) {
             productsSummary += `📝 _${prop.name.replace(/^_+/, '')}:_ ${prop.value}\n`;
           }
         });
@@ -90,14 +94,14 @@ export default async function handler(req, res) {
       productsSummary += `\n`;
     });
 
-    // --- 4. SEND FINAL SUMMARY ---
+    // --- 4. ASSEMBLE & SEND FINAL SUMMARY ---
     const message = `*طلب جديد - ${name}* 🚀\n\n` +
                     `*يوم التوصيل:* ${dayName}\n` +
-                    `*طريقة الدفع:* ${paymentMethod}\n` +
                     `*العميل:* ${getDisplayName()}\n` +
                     `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
                     `*المنتجات:*\n${productsSummary}` +
                     `*العنوان:* \n${shipping_address?.address1 || 'لا يوجد عنوان'}\n\n` +
+                    `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n` + 
                     `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
 
     await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
