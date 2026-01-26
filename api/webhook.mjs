@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       total_price, currency 
     } = req.body;
 
-    // 1. Logic for Name, Delivery, and Payment (Preserved)
+    // 1. Logic for Name, Delivery, and Payment
     const getDisplayName = () => {
       const addr = shipping_address || billing_address || customer || {};
       return `${addr.first_name || ''} ${addr.last_name || ''}`.trim() || "عميل غير معروف";
@@ -40,15 +40,22 @@ export default async function handler(req, res) {
                   paymentMethod.includes('الدفع عند الاستلام');
     const totalDisplay = isCOD ? `\n💰 *المبلغ المطلوب (COD):* ${total_price} ${currency}` : "";
 
-    // 2. Format Products Summary (Preserved)
+    // 2. Format Products Summary (Excluding cl_option)
     let productsSummary = "";
     line_items.forEach((item, i) => {
       productsSummary += `📦 *المنتج ${i + 1}:* ${item.title}\n`;
       if (item.variant_title && item.variant_title !== "Default Title") productsSummary += `🔹 النوع: ${item.variant_title}\n`;
       productsSummary += `الكمية: ${item.quantity}\n`;
+      
       if (item.properties?.length > 0) {
         item.properties.forEach(prop => {
-          if (!prop.name.toLowerCase().includes('appid') && !prop.name.startsWith('__')) {
+          const propName = prop.name.toLowerCase();
+          // Filter logic: ignore appid, underscore prefixes, and cl_option
+          if (
+            !propName.includes('appid') && 
+            !propName.startsWith('__') && 
+            propName !== 'cl_option'
+          ) {
             productsSummary += `📝 _${prop.name.replace(/^_+/, '')}:_ ${prop.value}\n`;
           }
         });
@@ -85,14 +92,12 @@ export default async function handler(req, res) {
 
     // 4. Send Messages Logic
     if (uniqueItems.length === 0) {
-      // No images found? Send text only.
       await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
       });
     } else {
-      // Loop through unique images
       for (let i = 0; i < uniqueItems.length; i++) {
         const isLast = (i === uniqueItems.length - 1);
         await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
@@ -102,7 +107,6 @@ export default async function handler(req, res) {
             chatId: CHAT_ID,
             urlFile: uniqueItems[i].url,
             fileName: `${uniqueItems[i].title}.jpg`,
-            // ONLY the last photo gets the full details caption
             caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
           })
         });
