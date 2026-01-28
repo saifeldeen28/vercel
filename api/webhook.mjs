@@ -3,7 +3,7 @@ export default async function handler(req, res) {
 
   // --- CONFIGURATION ---
   const INSTANCE_ID = 'REDACTED_INSTANCE_ID';
-  const TOKEN = 'fa3a7a65a16248409e35fa8c8ed25ec086ebda5b67bc437f9f';
+  const TOKEN = 'bfa4630a20864e21b32ff10d733252e8697bd4c1d3e7410199';
   const CHAT_ID = "120363408155697195@g.us";
   const SHOPIFY_TOKEN = 'REDACTED_SHOPIFY_TOKEN'; 
   const STORE_DOMAIN = 'breakfastgift.myshopify.com'; 
