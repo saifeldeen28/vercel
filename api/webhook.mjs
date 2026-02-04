@@ -1,3 +1,7 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
@@ -10,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const { 
-      name, customer, shipping_address, billing_address, 
+      id, name, customer, shipping_address, billing_address, 
       note, note_attributes, line_items, payment_gateway_names,
       total_price, currency 
     } = req.body;
@@ -27,11 +31,22 @@ export default async function handler(req, res) {
     });
 
     let dayName = "غير محدد";
+    let deliveryDateFormatted = "غير محدد";
+    let extractedDate = null;
     if (deliveryAttribute?.value) {
       const deliveryDate = new Date(deliveryAttribute.value);
-      dayName = !isNaN(deliveryDate) 
-        ? new Intl.DateTimeFormat('ar-EG', { weekday: 'long' }).format(deliveryDate)
-        : deliveryAttribute.value;
+      if (!isNaN(deliveryDate)) {
+        dayName = new Intl.DateTimeFormat('ar-EG', { weekday: 'long' }).format(deliveryDate);
+        deliveryDateFormatted = new Intl.DateTimeFormat('ar-EG', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }).format(deliveryDate);
+        extractedDate = deliveryDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      } else {
+        dayName = deliveryAttribute.value;
+        deliveryDateFormatted = deliveryAttribute.value;
+      }
     }
 
     const paymentMethod = payment_gateway_names?.length > 0 ? payment_gateway_names[0] : "غير محدد";
@@ -64,7 +79,8 @@ export default async function handler(req, res) {
     });
 
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
-                               `*يوم التوصيل:* ${dayName}\n` +
+                               `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
+                               `🗓️ *يوم التوصيل:* ${dayName}\n` +
                                `*العميل:* ${getDisplayName()}\n` +
                                `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
                                `*المنتجات:*\n${productsSummary}` +
@@ -113,7 +129,41 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true });
+    // 5. Add to Database ONLY if COD
+    if (isCOD) {
+      const shopifyId = id.toString();
+
+      // INSERT/UPDATE ORDER
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .upsert([{ 
+          shopify_order_id: shopifyId, 
+          customer_name: getDisplayName(),
+          total_price: total_price,
+          delivery_area: shipping_address?.city || 'Not Specified',
+          delivery_date: extractedDate,
+          status: 'pending'
+        }], { onConflict: 'shopify_order_id' })
+        .select();
+
+      if (orderError) throw orderError;
+
+      // INSERT ORDER ITEMS
+      await supabase.from('order_items').delete().eq('order_id', order[0].id);
+
+      const items = line_items.map(item => ({
+        order_id: order[0].id,
+        item_name: item.title,
+        quantity: item.quantity
+      }));
+
+      const { error: itemsError } = await supabase.from('order_items').insert(items);
+      if (itemsError) throw itemsError;
+
+      console.log(`COD Order ${shopifyId} synced to database for delivery on ${extractedDate}`);
+    }
+
+    return res.status(200).json({ success: true, addedToDatabase: isCOD });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
