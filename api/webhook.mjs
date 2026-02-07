@@ -12,6 +12,10 @@ export default async function handler(req, res) {
   const SHOPIFY_TOKEN = 'REDACTED_SHOPIFY_TOKEN'; 
   const STORE_DOMAIN = 'breakfastgift.myshopify.com'; 
 
+  let whatsappSuccess = false;
+  let databaseSuccess = false;
+  let errors = [];
+
   try {
     const { 
       id, name, customer, shipping_address, billing_address, 
@@ -19,23 +23,20 @@ export default async function handler(req, res) {
       total_price, currency 
     } = req.body;
 
-    // 1. Logic for Name, Delivery, and Payment
+    // 1. Extract all name variants
     const getDisplayName = async () => {
       const addr = shipping_address || billing_address || customer || {};
       let first = addr.first_name || '';
       let last = addr.last_name || '';
-      const fullName = `${first} ${last}`.trim(); // FIX 1: Define fullName before using it
+      const fullName = `${first} ${last}`.trim();
 
-      // Regex to detect if the name contains English letters
       const isEnglish = /[a-zA-Z]/.test(first + last);
 
-      if (isEnglish && fullName) { // FIX 2: Check fullName exists
+      if (isEnglish && fullName) {
         try {
-          // Use Google Translate API to convert the name to Arabic
-          const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ar&dt=t&q=${encodeURIComponent(fullName)}`); // FIX 3: Use encodeURIComponent
+          const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ar&dt=t&q=${encodeURIComponent(fullName)}`);
           const data = await res.json();
           
-          // Return the translated name if successful
           if (data && data[0] && data[0][0] && data[0][0][0]) {
             return data[0][0][0];
           }
@@ -47,6 +48,25 @@ export default async function handler(req, res) {
       return fullName || "عميل غير معروف";
     };
 
+    // Extract all possible names
+    const customerAccountName = customer?.first_name && customer?.last_name 
+      ? `${customer.first_name} ${customer.last_name}`.trim() 
+      : null;
+    
+    const shippingName = shipping_address?.first_name && shipping_address?.last_name
+      ? `${shipping_address.first_name} ${shipping_address.last_name}`.trim()
+      : null;
+    
+    const billingName = billing_address?.first_name && billing_address?.last_name
+      ? `${billing_address.first_name} ${billing_address.last_name}`.trim()
+      : null;
+
+    // Extract all possible phone numbers
+    const customerAccountPhone = customer?.phone || null;
+    const shippingPhone = shipping_address?.phone || null;
+    const billingPhone = billing_address?.phone || null;
+
+    // Delivery date logic
     const deliveryAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
@@ -81,7 +101,9 @@ export default async function handler(req, res) {
     let productsSummary = "";
     line_items.forEach((item, i) => {
       productsSummary += `📦 *المنتج ${i + 1}:* ${item.title}\n`;
-      if (item.variant_title && item.variant_title !== "Default Title") productsSummary += `🔹 النوع: ${item.variant_title}\n`;
+      if (item.variant_title && item.variant_title !== "Default Title") {
+        productsSummary += `🔹 النوع: ${item.variant_title}\n`;
+      }
       productsSummary += `الكمية: ${item.quantity}\n`;
       
       if (item.properties?.length > 0) {
@@ -100,20 +122,19 @@ export default async function handler(req, res) {
       productsSummary += `\n`;
     });
 
-    // FIX 4: await getDisplayName() since it's async
     const displayName = await getDisplayName();
 
-    // 3. Create a formatted address string
+    // 3. Create formatted address
     const address = shipping_address;
     const fullAddress = address 
       ? `${address.address1 || ''} ${address.address2 || ''}, ${address.city || ''}, ${address.province || ''}`.trim()
       : 'لا يوجد عنوان';
 
-    // 4. Build the caption
+    // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
         `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
         `🗓️ *يوم التوصيل:* ${dayName}\n` +
-        `*العميل:* ${displayName}\n` + // FIX 5: Use awaited displayName
+        `*العميل:* ${displayName}\n` +
         `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
         `*المنتجات:*\n${productsSummary}` +
         `*العنوان:* \n${fullAddress}\n\n` +
@@ -131,73 +152,153 @@ export default async function handler(req, res) {
           });
           const data = await res.json();
           if (data.product?.image?.src) {
-            uniqueItems.push({ url: data.product.image.src, title: item.title });
+            uniqueItems.push({ 
+              url: data.product.image.src, 
+              title: item.title,
+              productId: item.product_id
+            });
           }
-        } catch (e) { console.error("Fetch error", e); }
+        } catch (e) { 
+          console.error("Fetch error for product image", e); 
+        }
         seenIds.add(item.product_id);
       }
     }
 
-    // 6. Send Messages Logic
-    if (uniqueItems.length === 0) {
-      await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
-      });
-    } else {
-      for (let i = 0; i < uniqueItems.length; i++) {
-        const isLast = (i === uniqueItems.length - 1);
-        await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
+    // 6. Send WhatsApp Messages (Independent of database)
+    try {
+      if (uniqueItems.length === 0) {
+        await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chatId: CHAT_ID,
-            urlFile: uniqueItems[i].url,
-            fileName: `${uniqueItems[i].title}.jpg`,
-            caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
-          })
+          body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
         });
+      } else {
+        for (let i = 0; i < uniqueItems.length; i++) {
+          const isLast = (i === uniqueItems.length - 1);
+          await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId: CHAT_ID,
+              urlFile: uniqueItems[i].url,
+              fileName: `${uniqueItems[i].title}.jpg`,
+              caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
+            })
+          });
+        }
       }
+      whatsappSuccess = true;
+      console.log(`WhatsApp message sent for order ${name}`);
+    } catch (whatsappError) {
+      console.error('WhatsApp send failed:', whatsappError);
+      errors.push({ service: 'WhatsApp', error: whatsappError.message });
     }
 
-    // 7. Add to Database ONLY if COD
-    if (isCOD) {
+    // 7. Add ALL ORDERS to Database (Independent of WhatsApp)
+    try {
       const shopifyId = id.toString();
 
-      // INSERT/UPDATE ORDER
+      // INSERT/UPDATE ORDER with all new fields
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .upsert([{ 
-          shopify_order_id: shopifyId, 
-          customer_name: displayName, // FIX 6: Use awaited displayName
-          total_price: total_price,
-          delivery_area: shipping_address?.city || 'Not Specified',
+          shopify_order_id: shopifyId,
+          order_name: name,
+          
+          // All name variants
+          customer_account_name: customerAccountName,
+          shipping_name: shippingName,
+          billing_name: billingName,
+          
+          // All phone variants
+          customer_account_phone: customerAccountPhone,
+          shipping_phone: shippingPhone,
+          billing_phone: billingPhone,
+          
+          // Delivery info
           delivery_date: extractedDate,
-          status: 'pending'
+          delivery_day_name: dayName,
+          delivery_date_full: deliveryDateFormatted,
+          delivery_area: shipping_address?.city || billing_address?.city || null,
+          delivery_address_line1: shipping_address?.address1 || null,
+          delivery_address_line2: shipping_address?.address2 || null,
+          delivery_full_address: fullAddress,
+          
+          // Payment
+          payment_method: paymentMethod,
+          is_cod: isCOD,
+          total_price: parseFloat(total_price),
+          
+          // Management
+          status: 'pending',
+          assigned_driver: null,
+          
+          // Notes
+          order_notes: note || null
         }], { onConflict: 'shopify_order_id' })
         .select();
 
       if (orderError) throw orderError;
 
-      // INSERT ORDER ITEMS
+      // DELETE old items and INSERT new ones
       await supabase.from('order_items').delete().eq('order_id', order[0].id);
 
-      const items = line_items.map(item => ({
-        order_id: order[0].id,
-        item_name: item.title,
-        quantity: item.quantity
-      }));
+      const items = line_items.map(item => {
+        // Build custom properties excluding cl_option
+        const customProps = {};
+        if (item.properties?.length > 0) {
+          item.properties.forEach(prop => {
+            const propName = prop.name.toLowerCase();
+            if (
+              !propName.includes('appid') && 
+              !propName.startsWith('__') && 
+              propName !== 'cl_option'
+            ) {
+              customProps[prop.name] = prop.value;
+            }
+          });
+        }
+
+        // Find matching image URL
+        const matchingImage = uniqueItems.find(ui => ui.productId === item.product_id);
+
+        return {
+          order_id: order[0].id,
+          shopify_product_id: item.product_id?.toString() || null,
+          item_name: item.title,
+          variant_title: item.variant_title !== "Default Title" ? item.variant_title : null,
+          quantity: item.quantity,
+          product_image_url: matchingImage?.url || null,
+          custom_properties: Object.keys(customProps).length > 0 ? customProps : null
+        };
+      });
 
       const { error: itemsError } = await supabase.from('order_items').insert(items);
       if (itemsError) throw itemsError;
 
-      console.log(`COD Order ${shopifyId} synced to database for delivery on ${extractedDate}`);
+      databaseSuccess = true;
+      console.log(`Order ${shopifyId} synced to database for delivery on ${extractedDate}`);
+    } catch (dbError) {
+      console.error('Database sync failed:', dbError);
+      errors.push({ service: 'Database', error: dbError.message });
     }
 
-    return res.status(200).json({ success: true, addedToDatabase: isCOD });
+    // Return status based on what succeeded
+    return res.status(200).json({ 
+      success: whatsappSuccess || databaseSuccess,
+      whatsappSent: whatsappSuccess,
+      databaseSaved: databaseSuccess,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
   } catch (error) {
-    console.error('Handler error:', error); // FIX 7: Add error logging
-    return res.status(500).json({ error: error.message });
+    console.error('Handler critical error:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: error.message,
+      whatsappSent: whatsappSuccess,
+      databaseSaved: databaseSuccess
+    });
   }
 }
