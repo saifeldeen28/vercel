@@ -78,15 +78,22 @@ export default async function handler(req, res) {
       productsSummary += `\n`;
     });
 
-    const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
-                               `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
-                               `🗓️ *يوم التوصيل:* ${dayName}\n` +
-                               `*العميل:* ${getDisplayName()}\n` +
-                               `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
-                               `*المنتجات:*\n${productsSummary}` +
-                               `*العنوان:* \n${shipping_address?.address1 || 'لا يوجد عنوان'}\n\n` +
-                               `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n` + 
-                               `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
+    // 1. Create a formatted address string
+const address = shipping_address;
+const fullAddress = address 
+  ? `${address.address1 || ''} ${address.address2 || ''}, ${address.city || ''}, ${address.province || ''}`.trim()
+  : 'لا يوجد عنوان';
+
+// 2. Update your caption variable
+const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
+    `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
+    `🗓️ *يوم التوصيل:* ${dayName}\n` +
+    `*العميل:* ${getDisplayName()}\n` +
+    `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
+    `*المنتجات:*\n${productsSummary}` +
+    `*العنوان:* \n${fullAddress}\n\n` + // Updated this line
+    `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n` + 
+    `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
 
     // 3. Collect Unique Product Images
     const uniqueItems = [];
