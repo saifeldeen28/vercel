@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURATION (MANUAL INPUTS) ---
 const CONFIG = {
-  DRIVER_COUNT: 3,             
+  DRIVER_COUNT: 5,             
   TARGET_PER_DRIVER: 5,        
   CURRENT_DATE: '2026-02-9',  // Use YYYY-MM-DD format
 };
