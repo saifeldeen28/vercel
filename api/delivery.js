@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const CONFIG = {
   DRIVER_COUNT: 5,             
   TARGET_PER_DRIVER: 5,        
-  CURRENT_DATE: '2026-02-14',  // Use YYYY-MM-DD format
+  CURRENT_DATE: '2026-02-9',  // Use YYYY-MM-DD format
 };
 
 // --- GREEN API CONFIG ---
