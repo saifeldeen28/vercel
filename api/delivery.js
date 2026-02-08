@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const CONFIG = {
   DRIVER_COUNT: 5,             
   TARGET_PER_DRIVER: 5,        
-  CURRENT_DATE: '2026-02-9',  // Use YYYY-MM-DD format
+  CURRENT_DATE: '2026-02-14',  // Use YYYY-MM-DD format
 };
 
 // --- GREEN API CONFIG ---
@@ -29,7 +29,7 @@ const deliveryRates = {
   "حدائق الاهرام": 250.00,
   "فيصل والهرم": 170.00,
   "6 اكتوبر": 270.00,
-  "٦ اكتوبر": 270.00, // Alternative spelling
+  "٦ اكتوبر": 270.00,
 
   // East Cairo & Helwan
   "جسر السويس": 150.00,
@@ -47,9 +47,9 @@ const deliveryRates = {
 
   // New Cairo & North/South
   "التجمع الأول/الثالث/الخامس": 100.00,
-  "التجمع الاول": 100.00, // Alternative
-  "التجمع الثالث": 100.00, // Alternative
-  "التجمع الخامس": 100.00, // Alternative
+  "التجمع الاول": 100.00,
+  "التجمع الثالث": 100.00,
+  "التجمع الخامس": 100.00,
   "الرحاب": 120.00,
   "الزيتون": 150.00,
   "الشروق": 220.00,
@@ -59,15 +59,41 @@ const deliveryRates = {
   "المستقبل": 250.00,
   "المطرية": 150.00,
   "المعادي": 150.00,
-  "المعادى": 150.00, // Alternative spelling
+  "المعادى": 150.00,
   "المقطم": 120.00,
   "المنيل": 170.00,
   "النزهة": 140.00
 };
 
-// --- ADJACENCY MAP (Nearby areas that can be combined) ---
+// --- GEOGRAPHIC ZONES (Prevent mixing far east and far west) ---
+const ZONES = {
+  "WEST": [
+    "الدقي", "الزمالك", "الشيخ زايد", "العجوزه", "المنيب", 
+    "المهندسين", "امبايه", "بولاق الدكرور", "حدائق الاهرام", 
+    "فيصل والهرم", "6 اكتوبر", "٦ اكتوبر"
+  ],
+  "EAST": [
+    "جسر السويس", "مدينة بدر", "مدينتي", "الشروق", 
+    "العاشر من رمضان", "العبور", "المرج", "المستقبل"
+  ],
+  "CENTRAL_NORTH": [
+    "حدائق القبة", "شبرا", "شبرا مصر", "عين شمس", 
+    "مدينة نصر", "مصر الجديدة", "وسط البلد", 
+    "الزيتون", "المطرية", "النزهة"
+  ],
+  "CENTRAL_SOUTH": [
+    "حلوان", "15 مايو", "المنيل"
+  ],
+  "NEW_CAIRO": [
+    "التجمع الأول/الثالث/الخامس", "التجمع الاول", 
+    "التجمع الثالث", "التجمع الخامس", "الرحاب", 
+    "المعادي", "المعادى", "المقطم"
+  ]
+};
+
+// --- PRIMARY ADJACENCY (Within same zone or compatible zones) ---
 const ADJACENCY_MAP = {
-  // Giza & West
+  // West Zone - Can combine within west only
   "الشيخ زايد": ["6 اكتوبر", "٦ اكتوبر"],
   "6 اكتوبر": ["الشيخ زايد", "٦ اكتوبر"],
   "٦ اكتوبر": ["الشيخ زايد", "6 اكتوبر"],
@@ -78,20 +104,31 @@ const ADJACENCY_MAP = {
   "فيصل والهرم": ["حدائق الاهرام"],
   "حدائق الاهرام": ["فيصل والهرم"],
 
-  // East Cairo
+  // New Cairo Zone - Can combine with each other
   "الرحاب": ["مدينتي", "التجمع الأول/الثالث/الخامس", "التجمع الخامس"],
   "مدينتي": ["الرحاب", "التجمع الأول/الثالث/الخامس", "التجمع الخامس"],
-  "التجمع الأول/الثالث/الخامس": ["الرحاب", "مدينتي", "المقطم", "التجمع الخامس"],
-  "التجمع الخامس": ["الرحاب", "مدينتي", "المقطم", "التجمع الأول/الثالث/الخامس"],
+  "التجمع الأول/الثالث/الخامس": ["الرحاب", "المقطم", "التجمع الخامس"],
+  "التجمع الخامس": ["الرحاب", "المقطم", "التجمع الأول/الثالث/الخامس"],
   "المقطم": ["التجمع الأول/الثالث/الخامس", "التجمع الخامس", "المعادي", "المعادى"],
   "المعادي": ["المقطم", "المعادى"],
   "المعادى": ["المقطم", "المعادي"],
+  
+  // Central North - Can combine with each other
   "مدينة نصر": ["مصر الجديدة", "النزهة"],
   "مصر الجديدة": ["مدينة نصر", "النزهة"],
   "النزهة": ["مدينة نصر", "مصر الجديدة"],
   "شبرا": ["شبرا مصر", "حدائق القبة"],
   "شبرا مصر": ["شبرا", "حدائق القبة"],
   "حدائق القبة": ["شبرا", "شبرا مصر"]
+};
+
+// --- COMPATIBLE ZONES (Which zones can be combined if needed) ---
+const COMPATIBLE_ZONES = {
+  "WEST": ["WEST"], // West stays alone
+  "EAST": ["EAST"], // East stays alone
+  "CENTRAL_NORTH": ["CENTRAL_NORTH", "NEW_CAIRO"], // Can combine
+  "CENTRAL_SOUTH": ["CENTRAL_SOUTH", "NEW_CAIRO"], // Can combine
+  "NEW_CAIRO": ["NEW_CAIRO", "CENTRAL_NORTH", "CENTRAL_SOUTH"] // Can combine with central
 };
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -101,17 +138,29 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // Helper function to get delivery rate for an area
 function getDeliveryRate(area) {
   if (!area) return 0;
-  // Try exact match first
   if (deliveryRates[area]) return deliveryRates[area];
   
-  // Try case-insensitive match
   const areaLower = area.toLowerCase();
   for (const [key, value] of Object.entries(deliveryRates)) {
     if (key.toLowerCase() === areaLower) return value;
   }
   
-  // Default rate if area not found
   return 100.00;
+}
+
+// Helper function to get zone for an area
+function getZone(area) {
+  for (const [zone, areas] of Object.entries(ZONES)) {
+    if (areas.includes(area)) return zone;
+  }
+  return "UNKNOWN";
+}
+
+// Helper function to check if two zones are compatible
+function areZonesCompatible(zone1, zone2) {
+  if (zone1 === zone2) return true;
+  const compatible = COMPATIBLE_ZONES[zone1] || [];
+  return compatible.includes(zone2);
 }
 
 export default async function handler(req, res) {
@@ -136,24 +185,54 @@ export default async function handler(req, res) {
       areaGroups[area].push(order);
     });
 
-    // 3. Clustering Logic (Adjacency)
+    // 3. Zone-Aware Clustering Logic
     const clusters = [];
     const processedAreas = new Set();
+    
     Object.keys(areaGroups).forEach(area => {
       if (processedAreas.has(area)) return;
+      
       let currentCluster = [...areaGroups[area]];
+      let clusterZone = getZone(area);
       processedAreas.add(area);
 
+      // Try to expand cluster if below target
       if (currentCluster.length < CONFIG.TARGET_PER_DRIVER) {
+        // First: Try adjacent areas in SAME or COMPATIBLE zones
         const neighbors = ADJACENCY_MAP[area] || [];
+        
         for (const neighbor of neighbors) {
-          if (areaGroups[neighbor] && !processedAreas.has(neighbor)) {
+          if (processedAreas.has(neighbor) || !areaGroups[neighbor]) continue;
+          
+          const neighborZone = getZone(neighbor);
+          
+          // Only combine if zones are compatible
+          if (areZonesCompatible(clusterZone, neighborZone)) {
             currentCluster = currentCluster.concat(areaGroups[neighbor]);
             processedAreas.add(neighbor);
+            
             if (currentCluster.length >= CONFIG.TARGET_PER_DRIVER) break;
           }
         }
+        
+        // Second: If still below target, try other areas in SAME or COMPATIBLE zones
+        if (currentCluster.length < CONFIG.TARGET_PER_DRIVER) {
+          for (const [otherArea, otherOrders] of Object.entries(areaGroups)) {
+            if (processedAreas.has(otherArea)) continue;
+            
+            const otherZone = getZone(otherArea);
+            
+            // Only combine if zones are compatible
+            if (areZonesCompatible(clusterZone, otherZone)) {
+              currentCluster = currentCluster.concat(otherOrders);
+              processedAreas.add(otherArea);
+              
+              if (currentCluster.length >= CONFIG.TARGET_PER_DRIVER) break;
+            }
+          }
+        }
       }
+      
       clusters.push(currentCluster);
     });
 
@@ -161,13 +240,17 @@ export default async function handler(req, res) {
     const driverAssignments = Array.from({ length: CONFIG.DRIVER_COUNT }, (_, i) => ({
       driver_name: `Driver ${i + 1}`,
       orders: [],
-      areas: new Set()
+      areas: new Set(),
+      zones: new Set()
     }));
 
     clusters.forEach(cluster => {
       const leastBusy = driverAssignments.reduce((p, c) => (p.orders.length < c.orders.length ? p : c));
       leastBusy.orders.push(...cluster);
-      cluster.forEach(o => leastBusy.areas.add(o.delivery_area));
+      cluster.forEach(o => {
+        leastBusy.areas.add(o.delivery_area);
+        leastBusy.zones.add(getZone(o.delivery_area));
+      });
     });
 
     // 5. Send to Green API
@@ -180,18 +263,18 @@ export default async function handler(req, res) {
       let totalCODCollection = 0;
 
       d.orders.forEach(order => {
-        // Add delivery rate per order
         totalEarnings += getDeliveryRate(order.delivery_area);
-        
-        // Add COD amount to collection
         if (order.is_cod) {
           totalCODCollection += parseFloat(order.total_price || 0);
         }
       });
 
+      const zonesInfo = Array.from(d.zones).join(' + ');
+
       const message = `*🚚 Dispatch: ${d.driver_name}*\n` +
         `📅 Date: ${CONFIG.CURRENT_DATE}\n` +
-        `📍 Zones: ${Array.from(d.areas).join(', ')}\n` +
+        `🗺️ Zones: ${zonesInfo}\n` +
+        `📍 Areas: ${Array.from(d.areas).join(', ')}\n` +
         `📦 Total Orders: ${d.orders.length}\n` +
         `💵 Your Earnings: ${totalEarnings.toFixed(2)} EGP\n` +
         `💰 COD to Collect: ${totalCODCollection.toFixed(2)} EGP\n` +
@@ -221,6 +304,8 @@ export default async function handler(req, res) {
       results.push({ 
         driver: d.driver_name, 
         orders: d.orders.length,
+        zones: Array.from(d.zones),
+        areas: Array.from(d.areas),
         earnings: totalEarnings,
         cod_collection: totalCODCollection,
         status: result 
