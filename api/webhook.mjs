@@ -130,10 +130,12 @@ export default async function handler(req, res) {
       ? `${address.address1 || ''} ${address.address2 || ''}, ${address.city || ''}, ${address.province || ''}`.trim()
       : 'لا يوجد عنوان';
 
+    const del_area= req.body.shipping_lines?.[0]?.title || req.body.shipping_lines?.[0]?.code;//shipping_address?.city || billing_address?.city || null
     // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
         `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
         `🗓️ *يوم التوصيل:* ${dayName}\n` +
+        `📍 *المنطقة:* ${del_area}\n` +
         `*العميل:* ${displayName}\n` +
         `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
         `*المنتجات:*\n${productsSummary}` +
@@ -220,7 +222,7 @@ export default async function handler(req, res) {
           delivery_date: extractedDate,
           delivery_day_name: dayName,
           delivery_date_full: deliveryDateFormatted,
-          delivery_area: shipping_address?.city || billing_address?.city || null,
+          delivery_area: del_area,
           delivery_address_line1: shipping_address?.address1 || null,
           delivery_address_line2: shipping_address?.address2 || null,
           delivery_full_address: fullAddress,
