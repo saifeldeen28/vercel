@@ -1,21 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const ML_API_URL = 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers';
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// --- DELIVERY RATES & COORDINATES ---
-const deliveryRates = {
-  "الدقي": 170.00, "الزمالك": 170.00, "الشيخ زايد": 270.00, "العجوزه": 170.00, "المنيب": 170.00,
-  "المهندسين": 170.00, "امبايه": 250.00, "بولاق الدكرور": 250.00, "حدائق الاهرام": 250.00,
-  "فيصل والهرم": 170.00, "6 اكتوبر": 270.00, "٦ اكتوبر": 270.00, "جسر السويس": 150.00,
-  "حدائق القبة": 150.00, "حلوان": 250.00, "شبرا": 150.00, "شبرا مصر": 150.00, "عين شمس": 150.00,
-  "مدينة بدر": 220.00, "مدينة نصر": 120.00, "مدينتي": 220.00, "مصر الجديدة": 130.00,
-  "وسط البلد": 150.00, "15 مايو": 250.00, "التجمع الأول/الثالث/الخامس": 100.00,
-  "التجمع الاول": 100.00, "التجمع الثالث": 100.00, "التجمع الخامس": 100.00, "الرحاب": 120.00,
-  "الزيتون": 150.00, "الشروق": 220.00, "العاشر من رمضان": 350.00, "العبور": 220.00,
-  "المرج": 170.00, "المستقبل": 250.00, "المطرية": 150.00, "المعادي": 150.00, "المعادى": 150.00,
-  "المقطم": 120.00, "المنيل": 170.00, "النزهة": 140.00
-};
-
+// --- DATA TABLES ---
 const areaCoordinates = {
   "الدقي": { lat: 30.0444, lng: 31.2089 }, "الزمالك": { lat: 30.0626, lng: 31.2220 },
   "الشيخ زايد": { lat: 30.0181, lng: 30.9737 }, "العجوزه": { lat: 30.0626, lng: 31.2003 },
@@ -41,29 +29,41 @@ const areaCoordinates = {
 };
 
 function getCoordinates(area) {
-  if (!area || !areaCoordinates[area]) return { lat: 30.0444, lng: 31.2357 };
-  return areaCoordinates[area];
+  if (!area) return { lat: 30.0444, lng: 31.2357 };
+  if (areaCoordinates[area]) return areaCoordinates[area];
+  const areaLower = area.toLowerCase();
+  for (const [key, value] of Object.entries(areaCoordinates)) {
+    if (key.toLowerCase() === areaLower) return value;
+  }
+  return { lat: 30.0444, lng: 31.2357 };
 }
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
   try {
     const { delivery_date, drivers_count } = req.body;
 
+    // --- RESTORED ORIGINAL VALIDATION ---
+    if (!delivery_date) return res.status(400).json({ error: 'Missing delivery_date' });
+    if (!drivers_count || drivers_count < 1 || drivers_count > 20) {
+      return res.status(400).json({ error: 'drivers_count must be between 1 and 20' });
+    }
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(delivery_date)) return res.status(400).json({ error: 'Invalid date format (YYYY-MM-DD)' });
+
+    // 1. Fetch Orders
     const { data: orders, error } = await supabase.from('orders').select('*').eq('delivery_date', delivery_date);
     if (error) throw error;
-    if (!orders || orders.length === 0) return res.status(200).json({ success: false, orders_found: 0 });
+    if (!orders || orders.length === 0) return res.status(200).json({ success: false, orders_found: 0, message: `No orders found for ${delivery_date}` });
 
-    const ordersWithCoordinates = orders.map(order => ({
-      id: order.id.toString(),
-      lat: getCoordinates(order.delivery_area).lat,
-      lng: getCoordinates(order.delivery_area).lng,
-      originalOrder: order
-    }));
+    // 2. Prep ML
+    const ordersWithCoordinates = orders.map(order => {
+      const coords = getCoordinates(order.delivery_area);
+      return { id: order.id.toString(), lat: coords.lat, lng: coords.lng, originalOrder: order };
+    });
 
+    // 3. Call ML API
     const mlResponse = await fetch(ML_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,8 +72,10 @@ export default async function handler(req, res) {
         orders: ordersWithCoordinates.map(o => ({ id: o.id, lat: o.lat, lng: o.lng }))
       })
     });
-
+    if (!mlResponse.ok) throw new Error(`ML API error: ${mlResponse.status}`);
     const mlAssignments = await mlResponse.json();
+
+    // 4. Grouping (Restored Exact Original Logic)
     const driverAssignments = Array.from({ length: drivers_count }, (_, i) => ({
       driver_name: `Driver ${i + 1}`,
       driver_number: i + 1,
@@ -85,8 +87,10 @@ export default async function handler(req, res) {
       const orderData = ordersWithCoordinates.find(o => o.id === assignment.order_id);
       if (orderData) {
         const d = driverAssignments[assignment.driver_number - 1];
-        d.orders.push(orderData.originalOrder);
-        d.areas.add(orderData.originalOrder.delivery_area);
+        if (d) {
+          d.orders.push(orderData.originalOrder);
+          d.areas.add(orderData.originalOrder.delivery_area);
+        }
       }
     });
 
