@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // --- CONFIGURATION (MANUAL INPUTS) ---
 const CONFIG = {
   DRIVER_COUNT: 5,             
-  CURRENT_DATE: '2026-02-9',  // Use YYYY-MM-DD format
+  CURRENT_DATE: '2026-02-10',  // Use YYYY-MM-DD format
   ML_API_URL: 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers' // Your HuggingFace ML API
 };
 
