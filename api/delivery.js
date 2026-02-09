@@ -257,7 +257,7 @@ export default async function handler(req, res) {
         status: result 
       });
       
-      await sleep(1000); 
+      await sleep(1); 
     }
 
     return res.status(200).json({ success: true, dispatch_results: results });
