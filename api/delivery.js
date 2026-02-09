@@ -1,12 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- CONFIGURATION (MANUAL INPUTS) ---
-const CONFIG = {
-  DRIVER_COUNT: 5,             
-  CURRENT_DATE: '2026-02-10',  // Use YYYY-MM-DD format
-  ML_API_URL: 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers' // Your HuggingFace ML API
-};
-
 // --- GREEN API CONFIG ---
 const GREEN_API = {
   INSTANCE_ID: 'REDACTED_INSTANCE_ID',         
@@ -14,6 +7,9 @@ const GREEN_API = {
   CHAT_ID: '201023238155@c.us', 
   API_URL: 'https://api.green-api.com'
 };
+
+// --- ML API CONFIG ---
+const ML_API_URL = 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers';
 
 // --- DELIVERY RATES (Driver earnings per area) ---
 const deliveryRates = {
@@ -143,16 +139,54 @@ function getCoordinates(area) {
 }
 
 export default async function handler(req, res) {
+  // Only accept POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  }
+
   try {
-    // 1. Fetch Pending Orders by 'delivery_date'
+    // Extract parameters from request body
+    const { delivery_date, drivers_count } = req.body;
+
+    // Validate input
+    if (!delivery_date) {
+      return res.status(400).json({ 
+        error: 'Missing required field: delivery_date',
+        example: { delivery_date: '2026-02-09', drivers_count: 5 }
+      });
+    }
+
+    if (!drivers_count || drivers_count < 1 || drivers_count > 20) {
+      return res.status(400).json({ 
+        error: 'drivers_count must be between 1 and 20',
+        example: { delivery_date: '2026-02-09', drivers_count: 5 }
+      });
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(delivery_date)) {
+      return res.status(400).json({ 
+        error: 'Invalid date format. Use YYYY-MM-DD (e.g., 2026-02-09)' 
+      });
+    }
+
+    // 1. Fetch Orders by delivery_date
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('delivery_date', CONFIG.CURRENT_DATE);
+      .eq('delivery_date', delivery_date);
 
     if (error) throw error;
+    
     if (!orders || orders.length === 0) {
-      return res.status(200).json({ message: `No pending orders found for ${CONFIG.CURRENT_DATE}` });
+      return res.status(200).json({ 
+        success: false,
+        message: `No orders found for ${delivery_date}`,
+        delivery_date,
+        drivers_count,
+        orders_found: 0
+      });
     }
 
     // 2. Prepare data for ML API
@@ -167,11 +201,11 @@ export default async function handler(req, res) {
     });
 
     // 3. Call Hugging Face ML API for clustering
-    const mlResponse = await fetch(CONFIG.ML_API_URL, {
+    const mlResponse = await fetch(ML_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        drivers_count: CONFIG.DRIVER_COUNT,
+        drivers_count: drivers_count,
         orders: ordersWithCoordinates.map(o => ({
           id: o.id,
           lat: o.lat,
@@ -181,13 +215,14 @@ export default async function handler(req, res) {
     });
 
     if (!mlResponse.ok) {
-      throw new Error(`ML API error: ${mlResponse.status} ${mlResponse.statusText}`);
+      const errorText = await mlResponse.text();
+      throw new Error(`ML API error: ${mlResponse.status} - ${errorText}`);
     }
 
     const mlAssignments = await mlResponse.json();
 
     // 4. Group orders by driver number from ML API
-    const driverAssignments = Array.from({ length: CONFIG.DRIVER_COUNT }, (_, i) => ({
+    const driverAssignments = Array.from({ length: drivers_count }, (_, i) => ({
       driver_name: `Driver ${i + 1}`,
       driver_number: i + 1,
       orders: [],
@@ -220,7 +255,7 @@ export default async function handler(req, res) {
       });
 
       const message = `*🚚 Dispatch: ${d.driver_name}*\n` +
-        `📅 Date: ${CONFIG.CURRENT_DATE}\n` +
+        `📅 Date: ${delivery_date}\n` +
         `📍 Areas: ${Array.from(d.areas).join(', ')}\n` +
         `📦 Total Orders: ${d.orders.length}\n` +
         `💵 Your Earnings: ${totalEarnings.toFixed(2)} EGP\n` +
@@ -257,12 +292,23 @@ export default async function handler(req, res) {
         status: result 
       });
       
-      await sleep(1); 
+      await sleep(1);
     }
 
-    return res.status(200).json({ success: true, dispatch_results: results });
+    return res.status(200).json({ 
+      success: true,
+      delivery_date,
+      drivers_count,
+      orders_found: orders.length,
+      drivers_dispatched: results.length,
+      dispatch_results: results 
+    });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('Error in dispatch handler:', err);
+    return res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
   }
 }
