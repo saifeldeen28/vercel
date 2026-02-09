@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 // --- CONFIGURATION (MANUAL INPUTS) ---
 const CONFIG = {
   DRIVER_COUNT: 5,             
-  TARGET_PER_DRIVER: 5,        
   CURRENT_DATE: '2026-02-9',  // Use YYYY-MM-DD format
+  ML_API_URL: 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers' // Your HuggingFace ML API
 };
 
 // --- GREEN API CONFIG ---
@@ -65,70 +65,49 @@ const deliveryRates = {
   "النزهة": 140.00
 };
 
-// --- GEOGRAPHIC ZONES (Prevent mixing far east and far west) ---
-const ZONES = {
-  "WEST": [
-    "الدقي", "الزمالك", "الشيخ زايد", "العجوزه", "المنيب", 
-    "المهندسين", "امبايه", "بولاق الدكرور", "حدائق الاهرام", 
-    "فيصل والهرم", "6 اكتوبر", "٦ اكتوبر"
-  ],
-  "EAST": [
-    "جسر السويس", "مدينة بدر", "مدينتي", "الشروق", 
-    "العاشر من رمضان", "العبور", "المرج", "المستقبل"
-  ],
-  "CENTRAL_NORTH": [
-    "حدائق القبة", "شبرا", "شبرا مصر", "عين شمس", 
-    "مدينة نصر", "مصر الجديدة", "وسط البلد", 
-    "الزيتون", "المطرية", "النزهة"
-  ],
-  "CENTRAL_SOUTH": [
-    "حلوان", "15 مايو", "المنيل"
-  ],
-  "NEW_CAIRO": [
-    "التجمع الأول/الثالث/الخامس", "التجمع الاول", 
-    "التجمع الثالث", "التجمع الخامس", "الرحاب", 
-    "المعادي", "المعادى", "المقطم"
-  ]
-};
-
-// --- PRIMARY ADJACENCY (Within same zone or compatible zones) ---
-const ADJACENCY_MAP = {
-  // West Zone - Can combine within west only
-  "الشيخ زايد": ["6 اكتوبر", "٦ اكتوبر"],
-  "6 اكتوبر": ["الشيخ زايد", "٦ اكتوبر"],
-  "٦ اكتوبر": ["الشيخ زايد", "6 اكتوبر"],
-  "الدقي": ["المهندسين", "العجوزه", "الزمالك"],
-  "المهندسين": ["الدقي", "العجوزه"],
-  "العجوزه": ["الدقي", "المهندسين"],
-  "الزمالك": ["الدقي"],
-  "فيصل والهرم": ["حدائق الاهرام"],
-  "حدائق الاهرام": ["فيصل والهرم"],
-
-  // New Cairo Zone - Can combine with each other
-  "الرحاب": ["مدينتي", "التجمع الأول/الثالث/الخامس", "التجمع الخامس"],
-  "مدينتي": ["الرحاب", "التجمع الأول/الثالث/الخامس", "التجمع الخامس"],
-  "التجمع الأول/الثالث/الخامس": ["الرحاب", "المقطم", "التجمع الخامس"],
-  "التجمع الخامس": ["الرحاب", "المقطم", "التجمع الأول/الثالث/الخامس"],
-  "المقطم": ["التجمع الأول/الثالث/الخامس", "التجمع الخامس", "المعادي", "المعادى"],
-  "المعادي": ["المقطم", "المعادى"],
-  "المعادى": ["المقطم", "المعادي"],
-  
-  // Central North - Can combine with each other
-  "مدينة نصر": ["مصر الجديدة", "النزهة"],
-  "مصر الجديدة": ["مدينة نصر", "النزهة"],
-  "النزهة": ["مدينة نصر", "مصر الجديدة"],
-  "شبرا": ["شبرا مصر", "حدائق القبة"],
-  "شبرا مصر": ["شبرا", "حدائق القبة"],
-  "حدائق القبة": ["شبرا", "شبرا مصر"]
-};
-
-// --- COMPATIBLE ZONES (Which zones can be combined if needed) ---
-const COMPATIBLE_ZONES = {
-  "WEST": ["WEST"], // West stays alone
-  "EAST": ["EAST"], // East stays alone
-  "CENTRAL_NORTH": ["CENTRAL_NORTH", "NEW_CAIRO"], // Can combine
-  "CENTRAL_SOUTH": ["CENTRAL_SOUTH", "NEW_CAIRO"], // Can combine
-  "NEW_CAIRO": ["NEW_CAIRO", "CENTRAL_NORTH", "CENTRAL_SOUTH"] // Can combine with central
+// Cairo coordinates for areas (approximate centers)
+const areaCoordinates = {
+  "الدقي": { lat: 30.0444, lng: 31.2089 },
+  "الزمالك": { lat: 30.0626, lng: 31.2220 },
+  "الشيخ زايد": { lat: 30.0181, lng: 30.9737 },
+  "العجوزه": { lat: 30.0626, lng: 31.2003 },
+  "المنيب": { lat: 29.9797, lng: 31.2122 },
+  "المهندسين": { lat: 30.0618, lng: 31.2000 },
+  "امبايه": { lat: 30.0100, lng: 31.1800 },
+  "بولاق الدكرور": { lat: 30.0358, lng: 31.1711 },
+  "حدائق الاهرام": { lat: 30.0194, lng: 31.1164 },
+  "فيصل والهرم": { lat: 30.0131, lng: 31.1656 },
+  "6 اكتوبر": { lat: 29.9597, lng: 30.9239 },
+  "٦ اكتوبر": { lat: 29.9597, lng: 30.9239 },
+  "جسر السويس": { lat: 30.0719, lng: 31.3394 },
+  "حدائق القبة": { lat: 30.0753, lng: 31.2811 },
+  "حلوان": { lat: 29.8500, lng: 31.3344 },
+  "شبرا": { lat: 30.1100, lng: 31.2450 },
+  "شبرا مصر": { lat: 30.1100, lng: 31.2450 },
+  "عين شمس": { lat: 30.1281, lng: 31.3181 },
+  "مدينة بدر": { lat: 30.1525, lng: 31.7061 },
+  "مدينة نصر": { lat: 30.0542, lng: 31.3606 },
+  "مدينتي": { lat: 30.0892, lng: 31.6536 },
+  "مصر الجديدة": { lat: 30.0908, lng: 31.3272 },
+  "وسط البلد": { lat: 30.0444, lng: 31.2358 },
+  "15 مايو": { lat: 29.8703, lng: 31.2528 },
+  "التجمع الأول/الثالث/الخامس": { lat: 30.0131, lng: 31.4364 },
+  "التجمع الاول": { lat: 30.0300, lng: 31.4200 },
+  "التجمع الثالث": { lat: 30.0281, lng: 31.5064 },
+  "التجمع الخامس": { lat: 30.0131, lng: 31.4364 },
+  "الرحاب": { lat: 30.0586, lng: 31.4933 },
+  "الزيتون": { lat: 30.0808, lng: 31.2914 },
+  "الشروق": { lat: 30.1200, lng: 31.6200 },
+  "العاشر من رمضان": { lat: 30.4800, lng: 31.7400 },
+  "العبور": { lat: 30.1858, lng: 31.4800 },
+  "المرج": { lat: 30.1281, lng: 31.3564 },
+  "المستقبل": { lat: 30.0900, lng: 31.4800 },
+  "المطرية": { lat: 30.1281, lng: 31.3181 },
+  "المعادي": { lat: 29.9600, lng: 31.2500 },
+  "المعادى": { lat: 29.9600, lng: 31.2500 },
+  "المقطم": { lat: 30.0081, lng: 31.3200 },
+  "المنيل": { lat: 30.0233, lng: 31.2294 },
+  "النزهة": { lat: 30.1100, lng: 31.3400 }
 };
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -148,19 +127,19 @@ function getDeliveryRate(area) {
   return 100.00;
 }
 
-// Helper function to get zone for an area
-function getZone(area) {
-  for (const [zone, areas] of Object.entries(ZONES)) {
-    if (areas.includes(area)) return zone;
+// Helper function to get coordinates for an area
+function getCoordinates(area) {
+  if (!area) return { lat: 30.0444, lng: 31.2357 }; // Default Cairo center
+  
+  if (areaCoordinates[area]) return areaCoordinates[area];
+  
+  // Try case-insensitive match
+  const areaLower = area.toLowerCase();
+  for (const [key, value] of Object.entries(areaCoordinates)) {
+    if (key.toLowerCase() === areaLower) return value;
   }
-  return "UNKNOWN";
-}
-
-// Helper function to check if two zones are compatible
-function areZonesCompatible(zone1, zone2) {
-  if (zone1 === zone2) return true;
-  const compatible = COMPATIBLE_ZONES[zone1] || [];
-  return compatible.includes(zone2);
+  
+  return { lat: 30.0444, lng: 31.2357 }; // Default Cairo center
 }
 
 export default async function handler(req, res) {
@@ -177,80 +156,52 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: `No pending orders found for ${CONFIG.CURRENT_DATE}` });
     }
 
-    // 2. Grouping by delivery_area
-    const areaGroups = {};
-    orders.forEach(order => {
-      const area = order.delivery_area || 'Unspecified Area';
-      if (!areaGroups[area]) areaGroups[area] = [];
-      areaGroups[area].push(order);
+    // 2. Prepare data for ML API
+    const ordersWithCoordinates = orders.map(order => {
+      const coords = getCoordinates(order.delivery_area);
+      return {
+        id: order.id.toString(),
+        lat: coords.lat,
+        lng: coords.lng,
+        originalOrder: order
+      };
     });
 
-    // 3. Zone-Aware Clustering Logic
-    const clusters = [];
-    const processedAreas = new Set();
-    
-    Object.keys(areaGroups).forEach(area => {
-      if (processedAreas.has(area)) return;
-      
-      let currentCluster = [...areaGroups[area]];
-      let clusterZone = getZone(area);
-      processedAreas.add(area);
-
-      // Try to expand cluster if below target
-      if (currentCluster.length < CONFIG.TARGET_PER_DRIVER) {
-        // First: Try adjacent areas in SAME or COMPATIBLE zones
-        const neighbors = ADJACENCY_MAP[area] || [];
-        
-        for (const neighbor of neighbors) {
-          if (processedAreas.has(neighbor) || !areaGroups[neighbor]) continue;
-          
-          const neighborZone = getZone(neighbor);
-          
-          // Only combine if zones are compatible
-          if (areZonesCompatible(clusterZone, neighborZone)) {
-            currentCluster = currentCluster.concat(areaGroups[neighbor]);
-            processedAreas.add(neighbor);
-            
-            if (currentCluster.length >= CONFIG.TARGET_PER_DRIVER) break;
-          }
-        }
-        
-        // Second: If still below target, try other areas in SAME or COMPATIBLE zones
-        if (currentCluster.length < CONFIG.TARGET_PER_DRIVER) {
-          for (const [otherArea, otherOrders] of Object.entries(areaGroups)) {
-            if (processedAreas.has(otherArea)) continue;
-            
-            const otherZone = getZone(otherArea);
-            
-            // Only combine if zones are compatible
-            if (areZonesCompatible(clusterZone, otherZone)) {
-              currentCluster = currentCluster.concat(otherOrders);
-              processedAreas.add(otherArea);
-              
-              if (currentCluster.length >= CONFIG.TARGET_PER_DRIVER) break;
-            }
-          }
-        }
-      }
-      
-      clusters.push(currentCluster);
+    // 3. Call Hugging Face ML API for clustering
+    const mlResponse = await fetch(CONFIG.ML_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        drivers_count: CONFIG.DRIVER_COUNT,
+        orders: ordersWithCoordinates.map(o => ({
+          id: o.id,
+          lat: o.lat,
+          lng: o.lng
+        }))
+      })
     });
 
-    // 4. Driver Distribution
+    if (!mlResponse.ok) {
+      throw new Error(`ML API error: ${mlResponse.status} ${mlResponse.statusText}`);
+    }
+
+    const mlAssignments = await mlResponse.json();
+
+    // 4. Group orders by driver number from ML API
     const driverAssignments = Array.from({ length: CONFIG.DRIVER_COUNT }, (_, i) => ({
       driver_name: `Driver ${i + 1}`,
+      driver_number: i + 1,
       orders: [],
-      areas: new Set(),
-      zones: new Set()
+      areas: new Set()
     }));
 
-    clusters.forEach(cluster => {
-      const leastBusy = driverAssignments.reduce((p, c) => (p.orders.length < c.orders.length ? p : c));
-      leastBusy.orders.push(...cluster);
-      cluster.forEach(o => {
-        leastBusy.areas.add(o.delivery_area);
-        leastBusy.zones.add(getZone(o.delivery_area));
-      });
+    mlAssignments.forEach(assignment => {
+      const orderData = ordersWithCoordinates.find(o => o.id === assignment.order_id);
+      if (orderData) {
+        const driverIndex = assignment.driver_number - 1;
+        driverAssignments[driverIndex].orders.push(orderData.originalOrder);
+        driverAssignments[driverIndex].areas.add(orderData.originalOrder.delivery_area);
+      }
     });
 
     // 5. Send to Green API
@@ -269,11 +220,8 @@ export default async function handler(req, res) {
         }
       });
 
-      const zonesInfo = Array.from(d.zones).join(' + ');
-
       const message = `*🚚 Dispatch: ${d.driver_name}*\n` +
         `📅 Date: ${CONFIG.CURRENT_DATE}\n` +
-        `🗺️ Zones: ${zonesInfo}\n` +
         `📍 Areas: ${Array.from(d.areas).join(', ')}\n` +
         `📦 Total Orders: ${d.orders.length}\n` +
         `💵 Your Earnings: ${totalEarnings.toFixed(2)} EGP\n` +
@@ -304,7 +252,6 @@ export default async function handler(req, res) {
       results.push({ 
         driver: d.driver_name, 
         orders: d.orders.length,
-        zones: Array.from(d.zones),
         areas: Array.from(d.areas),
         earnings: totalEarnings,
         cod_collection: totalCODCollection,
