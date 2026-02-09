@@ -59,7 +59,11 @@ export default function Home() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to calculate assignments');
+      if (!response.ok) {
+  const errorData = await response.json();
+  console.error("API Error Details:", errorData); // This will show in your F12 console
+  throw new Error(errorData.error || 'Failed to calculate assignments');
+}
 
       const data: CoreApiResponse = await response.json();
       setResult(data);
