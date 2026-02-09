@@ -148,8 +148,7 @@ export default async function handler(req, res) {
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('delivery_date', CONFIG.CURRENT_DATE)
-      .eq('status', 'pending');
+      .eq('delivery_date', CONFIG.CURRENT_DATE);
 
     if (error) throw error;
     if (!orders || orders.length === 0) {
