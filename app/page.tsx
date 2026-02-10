@@ -308,21 +308,25 @@ export default function Home() {
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Driver Assignments</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dispatchResult.dispatch_results.map((driver, index) => (
-                  <DriverCard 
-                    key={index} 
-                    driver={driver.driver}
-                    orders={driver.order_count}
-                    areas={driver.areas}
-                    earnings={driver.earnings}
-                    cod_collection={driver.cod_collection}
-                    status={{
-                      idMessage: messagingResult?.messaging_results.find(
-                        r => r.driver_number === driver.driver_number
-                      )?.green_api_response.idMessage || ''
-                    }}
-                  />
-                ))}
+                {dispatchResult.dispatch_results.map((driver, index) => {
+                  const messagingStatus = messagingResult?.messaging_results.find(
+                    r => r.driver_number === driver.driver_number
+                  );
+                  
+                  return (
+                    <DriverCard 
+                      key={index} 
+                      driver={driver.driver}
+                      orders={driver.order_count}
+                      areas={driver.areas}
+                      earnings={driver.earnings}
+                      cod_collection={driver.cod_collection}
+                      status={{
+                        idMessage: messagingStatus?.green_api_response?.idMessage || ''
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
