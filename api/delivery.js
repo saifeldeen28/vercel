@@ -1,13 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- GREEN API CONFIG ---
-const GREEN_API = {
-  INSTANCE_ID: 'REDACTED_INSTANCE_ID',         
-  API_TOKEN: 'REDACTED_GREEN_API_TOKEN',             
-  CHAT_ID: '201023238155@c.us', 
-  API_URL: 'https://api.green-api.com'
-};
-
 // --- ML API CONFIG ---
 const ML_API_URL = 'https://saifeldeen28-vercel-ml.hf.space/assign-drivers';
 
@@ -107,8 +99,6 @@ const areaCoordinates = {
 };
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper function to get delivery rate for an area
 function getDeliveryRate(area) {
@@ -238,62 +228,30 @@ export default async function handler(req, res) {
       }
     });
 
-    // 5. Send to Green API
-    const results = [];
-    for (const d of driverAssignments) {
-      if (d.orders.length === 0) continue;
+    // 5. Calculate earnings and COD for each driver
+    const results = driverAssignments
+      .filter(d => d.orders.length > 0)
+      .map(d => {
+        let totalEarnings = 0;
+        let totalCODCollection = 0;
 
-      // Calculate driver earnings and COD collection
-      let totalEarnings = 0;
-      let totalCODCollection = 0;
+        d.orders.forEach(order => {
+          totalEarnings += getDeliveryRate(order.delivery_area);
+          if (order.is_cod) {
+            totalCODCollection += parseFloat(order.total_price || 0);
+          }
+        });
 
-      d.orders.forEach(order => {
-        totalEarnings += getDeliveryRate(order.delivery_area);
-        if (order.is_cod) {
-          totalCODCollection += parseFloat(order.total_price || 0);
-        }
+        return {
+          driver: d.driver_name,
+          driver_number: d.driver_number,
+          orders: d.orders,
+          order_count: d.orders.length,
+          areas: Array.from(d.areas),
+          earnings: totalEarnings,
+          cod_collection: totalCODCollection
+        };
       });
-
-      const message = `*🚚 Dispatch: ${d.driver_name}*\n` +
-        `📅 Date: ${delivery_date}\n` +
-        `📍 Areas: ${Array.from(d.areas).join(', ')}\n` +
-        `📦 Total Orders: ${d.orders.length}\n` +
-        `💵 Your Earnings: ${totalEarnings.toFixed(2)} EGP\n` +
-        `💰 COD to Collect: ${totalCODCollection.toFixed(2)} EGP\n` +
-        `────────────────────\n\n` +
-        d.orders.map((o, i) => {
-          const deliveryRate = getDeliveryRate(o.delivery_area);
-          const codStatus = o.is_cod ? `🔴 *COD: ${o.total_price} EGP*` : `🟢 Paid Online`;
-          return `${i+1}. *Order: ${o.order_name}*\n` +
-            `👤 ${o.shipping_name || o.customer_account_name || 'N/A'}\n` +
-            `🏠 ${o.delivery_full_address || 'N/A'}\n` +
-            `📞 ${o.shipping_phone || o.customer_account_phone || 'N/A'}\n` +
-            `💰 ${codStatus}\n` +
-            `💵 Rate: ${deliveryRate.toFixed(2)} EGP` +
-            `${o.order_notes ? `\n📝 Note: ${o.order_notes}` : ''}`;
-        }).join('\n\n────────────────────\n\n');
-
-      const response = await fetch(`${GREEN_API.API_URL}/waInstance${GREEN_API.INSTANCE_ID}/sendMessage/${GREEN_API.API_TOKEN}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: GREEN_API.CHAT_ID, 
-          message: message
-        })
-      });
-
-      const result = await response.json();
-      results.push({ 
-        driver: d.driver_name, 
-        orders: d.orders.length,
-        areas: Array.from(d.areas),
-        earnings: totalEarnings,
-        cod_collection: totalCODCollection,
-        status: result 
-      });
-      
-      await sleep(1);
-    }
 
     return res.status(200).json({ 
       success: true,
