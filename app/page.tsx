@@ -316,6 +316,11 @@ export default function Home() {
                     areas={driver.areas}
                     earnings={driver.earnings}
                     cod_collection={driver.cod_collection}
+                    status={{
+                      idMessage: messagingResult?.messaging_results.find(
+                        r => r.driver_number === driver.driver_number
+                      )?.green_api_response.idMessage || ''
+                    }}
                   />
                 ))}
               </div>
