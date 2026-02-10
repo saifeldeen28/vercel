@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import DriverCard from './components/DriverCard';
 import StatsCard from './components/StatsCard';
+import DispatchEditor from './components/DispatchEditor';
 
 interface Order {
   id: number;
@@ -65,6 +66,52 @@ export default function Home() {
   const [messagingError, setMessagingError] = useState<string>('');
   const [dispatchResult, setDispatchResult] = useState<DispatchResponse | null>(null);
   const [messagingResult, setMessagingResult] = useState<MessagingResponse | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+
+  // Delivery rates for calculating earnings
+  const deliveryRates: { [key: string]: number } = {
+    "الدقي": 170.00,
+    "الزمالك": 170.00,
+    "الشيخ زايد": 270.00,
+    "العجوزه": 170.00,
+    "المنيب": 170.00,
+    "المهندسين": 170.00,
+    "امبايه": 250.00,
+    "بولاق الدكرور": 250.00,
+    "حدائق الاهرام": 250.00,
+    "فيصل والهرم": 170.00,
+    "6 اكتوبر": 270.00,
+    "٦ اكتوبر": 270.00,
+    "جسر السويس": 150.00,
+    "حدائق القبة": 150.00,
+    "حلوان": 250.00,
+    "شبرا": 150.00,
+    "شبرا مصر": 150.00,
+    "عين شمس": 150.00,
+    "مدينة بدر": 220.00,
+    "مدينة نصر": 120.00,
+    "مدينتي": 220.00,
+    "مصر الجديدة": 130.00,
+    "وسط البلد": 150.00,
+    "15 مايو": 250.00,
+    "التجمع الأول/الثالث/الخامس": 100.00,
+    "التجمع الاول": 100.00,
+    "التجمع الثالث": 100.00,
+    "التجمع الخامس": 100.00,
+    "الرحاب": 120.00,
+    "الزيتون": 150.00,
+    "الشروق": 220.00,
+    "العاشر من رمضان": 350.00,
+    "العبور": 220.00,
+    "المرج": 170.00,
+    "المستقبل": 250.00,
+    "المطرية": 150.00,
+    "المعادي": 150.00,
+    "المعادى": 150.00,
+    "المقطم": 120.00,
+    "المنيل": 170.00,
+    "النزهة": 140.00
+  };
 
   const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +181,29 @@ export default function Home() {
     } finally {
       setMessagingLoading(false);
     }
+  };
+
+  const handleEditDispatch = () => {
+    setIsEditing(true);
+  };
+
+  const handleSaveEdits = (editedResults: DispatchResult[]) => {
+    if (!dispatchResult) return;
+
+    // Recalculate totals
+    const totalOrders = editedResults.reduce((sum, d) => sum + d.order_count, 0);
+
+    setDispatchResult({
+      ...dispatchResult,
+      dispatch_results: editedResults,
+      orders_found: totalOrders,
+      drivers_dispatched: editedResults.length
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
   };
 
   const totalEarnings = dispatchResult?.dispatch_results.reduce((sum, driver) => sum + driver.earnings, 0) || 0;
@@ -250,29 +320,40 @@ export default function Home() {
                   <p className="text-sm text-gray-600">
                     {messagingResult 
                       ? `✅ Messages sent successfully to ${messagingResult.messages_sent} driver(s)`
-                      : 'Send dispatch details to drivers via WhatsApp'
+                      : 'Review and edit assignments, then send dispatch details via WhatsApp'
                     }
                   </p>
                 </div>
-                <button
-                  onClick={handleSendMessages}
-                  disabled={messagingLoading || !!messagingResult}
-                  className={`btn-primary ${messagingResult ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {messagingLoading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Sending Messages...
-                    </span>
-                  ) : messagingResult ? (
-                    '✅ Messages Sent'
-                  ) : (
-                    '📱 Send WhatsApp Messages'
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleEditDispatch}
+                    disabled={!!messagingResult}
+                    className={`px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium ${
+                      messagingResult ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    ✏️ Edit Assignments
+                  </button>
+                  <button
+                    onClick={handleSendMessages}
+                    disabled={messagingLoading || !!messagingResult}
+                    className={`btn-primary ${messagingResult ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {messagingLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Sending Messages...
+                      </span>
+                    ) : messagingResult ? (
+                      '✅ Messages Sent'
+                    ) : (
+                      '📱 Send WhatsApp Messages'
+                    )}
+                  </button>
+                </div>
               </div>
 
               {messagingError && (
@@ -339,6 +420,16 @@ export default function Home() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Dispatch Created Yet</h3>
             <p className="text-gray-600">Fill in the form above to create your first dispatch</p>
           </div>
+        )}
+
+        {/* Dispatch Editor Modal */}
+        {isEditing && dispatchResult && (
+          <DispatchEditor
+            dispatchResults={dispatchResult.dispatch_results}
+            deliveryRates={deliveryRates}
+            onSave={handleSaveEdits}
+            onCancel={handleCancelEdit}
+          />
         )}
       </div>
     </main>
