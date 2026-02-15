@@ -52,7 +52,7 @@ The application has two main parts:
 
 **app/page.tsx** (Main Component)
 - Manages all dispatch logic and state
-- Contains delivery rate mapping (area → EGP amount)
+- Imports delivery rate mapping from centralized config (`lib/deliveryRates.js`)
 - Handles form submission for dispatch creation
 - Manages messaging flow and state
 - Renders stats cards and driver cards from dispatch results
@@ -98,9 +98,11 @@ npm run lint            # Run Next.js linter (ESLint)
 ## Important Implementation Details
 
 ### Delivery Rates System
+- **Single source of truth**: Centralized in `lib/deliveryRates.js`
 - Cairo-based delivery areas with fixed EGP rates per area
-- Defined in API endpoints (`api/delivery.js`, `api/drivers-messaging.js`) and frontend (`page.tsx`)
-- Case-insensitive area matching via lowercase comparison
+- Imported by API endpoints (`api/delivery.js`, `api/drivers-messaging.js`) and frontend (`app/page.tsx`)
+- Provides `deliveryRates` object and `getDeliveryRate()` helper function
+- Supports case-insensitive area matching via lowercase comparison
 - Default rate: 100 EGP if area not found in mapping
 - Used to calculate driver earnings, displayed in dispatch editor and WhatsApp messages
 
@@ -153,6 +155,9 @@ app/
     DriverCard.tsx        # Driver display component
     StatsCard.tsx         # Summary stat component
 
+lib/
+  deliveryRates.js        # Centralized delivery rates config (single source of truth for all areas)
+
 api/
   delivery.js             # Dispatch assignment logic (Supabase → ML API → driver clusters)
   drivers-messaging.js    # WhatsApp message formatting and sending via Green API
@@ -185,7 +190,6 @@ The DispatchEditor maintains its own internal state for the editing session and 
 - Requires valid `delivery_date` (YYYY-MM-DD) and `drivers_count` (1-20) to initiate dispatch
 
 **API & Data Flow:**
-- Delivery rates are duplicated across frontend and API files (should be consolidated)
 - Green API credentials are hardcoded in `api/drivers-messaging.js` (should use environment variables)
 - Shopify webhook handlers expect specific order attribute structure and delivery_date field
 - ML clustering is synchronous and may timeout on very large order volumes (100+ orders)
