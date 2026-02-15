@@ -2,7 +2,7 @@
 const GREEN_API = {
   INSTANCE_ID: 'REDACTED_INSTANCE_ID',         
   API_TOKEN: 'REDACTED_GREEN_API_TOKEN',             
-  CHAT_ID: '201023238155@c.us', 
+  CHAT_ID: '201009356511@c.us', 
   API_URL: 'https://api.green-api.com'
 };
 
@@ -18,6 +18,7 @@ const deliveryRates = {
   "امبايه": 250.00,
   "بولاق الدكرور": 250.00,
   "حدائق الاهرام": 250.00,
+  "حدايق الاهرام": 250.00,
   "فيصل والهرم": 170.00,
   "6 اكتوبر": 270.00,
   "٦ اكتوبر": 270.00,
