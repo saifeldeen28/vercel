@@ -323,7 +323,7 @@ export default function Home() {
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="font-medium text-green-900 mb-2">Messaging Summary</h4>
                     <div className="space-y-1 text-sm text-green-800">
-                      {messagingResult.messaging_results.map((result, index) => (
+                      {messagingResult.messaging_results?.map((result, index) => (
                         <div key={index} className="flex items-center justify-between">
                           <span>
                             {result.message_sent ? '✅' : '❌'} {result.driver} ({result.orders_count} orders)
@@ -345,8 +345,8 @@ export default function Home() {
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Driver Assignments</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dispatchResult.dispatch_results.map((driver, index) => {
-                  const messagingStatus = messagingResult?.messaging_results.find(
+                {dispatchResult.dispatch_results?.map((driver, index) => {
+                  const messagingStatus = messagingResult?.messaging_results?.find(
                     r => r.driver_number === driver.driver_number
                   );
                   
