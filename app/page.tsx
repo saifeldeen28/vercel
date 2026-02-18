@@ -56,9 +56,19 @@ interface MessagingResponse {
   messaging_results: MessagingResult[];
 }
 
+function toISODate(ddmmyyyy: string): string {
+  const [d, m, y] = ddmmyyyy.split('-');
+  return `${y}-${m}-${d}`;
+}
+
+function toDisplayDate(yyyymmdd: string): string {
+  const [y, m, d] = yyyymmdd.split('-');
+  return `${d}-${m}-${y}`;
+}
+
 export default function Home() {
   const [deliveryDate, setDeliveryDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    toDisplayDate(new Date().toISOString().split('T')[0])
   );
   const [driversCount, setDriversCount] = useState<number>(5);
   const [loading, setLoading] = useState<boolean>(false);
@@ -84,7 +94,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          delivery_date: deliveryDate,
+          delivery_date: toISODate(deliveryDate),
           drivers_count: driversCount,
         }),
       });
@@ -120,7 +130,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          delivery_date: deliveryDate,
+          delivery_date: toISODate(deliveryDate),
           dispatch_results: dispatchResult.dispatch_results,
         }),
       });
@@ -184,10 +194,12 @@ export default function Home() {
                   Delivery Date
                 </label>
                 <input
-                  type="date"
+                  type="text"
                   id="deliveryDate"
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
+                  placeholder="DD-MM-YYYY"
+                  pattern="\d{2}-\d{2}-\d{4}"
                   className="input-field"
                   required
                 />
