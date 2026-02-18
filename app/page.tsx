@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { deliveryRates } from '@/lib/deliveryRates';
 import DriverCard from './components/DriverCard';
 import StatsCard from './components/StatsCard';
@@ -56,6 +56,13 @@ interface MessagingResponse {
   messaging_results: MessagingResult[];
 }
 
+interface OrdersSummary {
+  success: boolean;
+  orders_count: number;
+  total_earnings: number;
+  total_cod: number;
+}
+
 function toISODate(ddmmyyyy: string): string {
   const [d, m, y] = ddmmyyyy.split('-');
   return `${y}-${m}-${d}`;
@@ -78,6 +85,28 @@ export default function Home() {
   const [dispatchResult, setDispatchResult] = useState<DispatchResponse | null>(null);
   const [messagingResult, setMessagingResult] = useState<MessagingResponse | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [ordersSummary, setOrdersSummary] = useState<OrdersSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const datePattern = /^\d{2}-\d{2}-\d{4}$/;
+    if (!datePattern.test(deliveryDate)) {
+      setOrdersSummary(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSummaryLoading(true);
+    setOrdersSummary(null);
+
+    fetch(`/api/orders-summary?delivery_date=${toISODate(deliveryDate)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (!cancelled) setOrdersSummary(data); })
+      .catch(() => { if (!cancelled) setOrdersSummary(null); })
+      .finally(() => { if (!cancelled) setSummaryLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [deliveryDate]);
 
   const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,7 +249,24 @@ export default function Home() {
                 />
               </div>
             </div>
-            
+
+            {/* Date Summary */}
+            {(summaryLoading || ordersSummary) && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {summaryLoading ? (
+                  <p className="text-sm text-blue-600">Loading orders for this date...</p>
+                ) : ordersSummary && ordersSummary.orders_count === 0 ? (
+                  <p className="text-sm text-gray-500">No orders found for this date.</p>
+                ) : ordersSummary ? (
+                  <div className="flex flex-wrap gap-4 text-sm font-medium text-blue-800">
+                    <span>📦 {ordersSummary.orders_count} orders</span>
+                    <span>💰 {ordersSummary.total_earnings.toLocaleString()} EGP earnings</span>
+                    <span>💵 {ordersSummary.total_cod.toLocaleString()} EGP COD</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
