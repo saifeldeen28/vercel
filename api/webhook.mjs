@@ -6,11 +6,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
   // --- CONFIGURATION ---
-  const INSTANCE_ID = 'REDACTED_INSTANCE_ID';
-  const TOKEN = 'REDACTED_GREEN_API_TOKEN';
-  const CHAT_ID = "120363408155697195@g.us";
-  const SHOPIFY_TOKEN = 'REDACTED_SHOPIFY_TOKEN'; 
-  const STORE_DOMAIN = 'breakfastgift.myshopify.com'; 
+  const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID;
+  const TOKEN = process.env.GREEN_API_TOKEN;
+  const CHAT_ID = process.env.GREEN_API_GROUP_CHAT_ID;
+  const SHOPIFY_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
 
   let whatsappSuccess = false;
   let databaseSuccess = false;

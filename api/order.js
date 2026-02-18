@@ -17,11 +17,11 @@ export default async function handler(req, res) {
                     `*Items:*\n${productList}`;
 
     // 3. Send to Green API
-    const greenApiResponse = await fetch('https://api.green-api.com/waInstance{{7105482130}}/sendMessage/{{162863f82a0545f5b7f941f677ec2697396adf54bdf949d9ae}}', {
+    const greenApiResponse = await fetch(`https://api.green-api.com/waInstance${process.env.GREEN_API_ORDER_INSTANCE_ID}/sendMessage/${process.env.GREEN_API_ORDER_TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chatId: "201023238155@c.us", // Replace with your partner's number
+        chatId: process.env.GREEN_API_ORDER_CHAT_ID,
         message: message
       })
     });

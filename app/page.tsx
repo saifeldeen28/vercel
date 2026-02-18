@@ -78,7 +78,7 @@ export default function Home() {
     setMessagingError('');
 
     try {
-      const response = await fetch('https://vercel-jet-ten-24.vercel.app/api/delivery', {
+      const response = await fetch('/api/delivery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default function Home() {
     setMessagingResult(null);
 
     try {
-      const response = await fetch('https://vercel-jet-ten-24.vercel.app/api/drivers-messaging', {
+      const response = await fetch('/api/drivers-messaging', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

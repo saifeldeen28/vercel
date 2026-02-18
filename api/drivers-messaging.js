@@ -2,9 +2,9 @@ import { getDeliveryRate } from '../lib/deliveryRates.js';
 
 // --- GREEN API CONFIG ---
 const GREEN_API = {
-  INSTANCE_ID: 'REDACTED_INSTANCE_ID',
-  API_TOKEN: 'REDACTED_GREEN_API_TOKEN',
-  CHAT_ID: '201009356511@c.us',
+  INSTANCE_ID: process.env.GREEN_API_INSTANCE_ID,
+  API_TOKEN: process.env.GREEN_API_TOKEN,
+  CHAT_ID: process.env.GREEN_API_CHAT_ID,
   API_URL: 'https://api.green-api.com'
 };
 
