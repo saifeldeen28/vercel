@@ -71,6 +71,10 @@ export default async function handler(req, res) {
       const key = attr.name.toLowerCase();
       return key.includes('delivery') || key.includes('تاريخ') || key.includes('date');
     });
+    const deliveryTimeAttribute = note_attributes?.find(attr => {
+      const key = attr.name.toLowerCase();
+      return key.includes('time') || key.includes('due');
+    });
 
     let dayName = "غير محدد";
     let deliveryDateFormatted = "غير محدد";
@@ -135,6 +139,7 @@ export default async function handler(req, res) {
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
         `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
         `🗓️ *يوم التوصيل:* ${dayName}\n` +
+        `⏰ *وقت التوصيل:* ${deliveryTimeAttribute?.value || 'غير محدد'}\n` +
         `📍 *المنطقة:* ${del_area}\n` +
         `*العميل:* ${displayName}\n` +
         `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
