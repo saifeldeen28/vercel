@@ -162,8 +162,8 @@ export default function Home() {
     setIsEditing(false);
   };
 
-  const totalEarnings = dispatchResult?.dispatch_results.reduce((sum, driver) => sum + driver.earnings, 0) || 0;
-  const totalCOD = dispatchResult?.dispatch_results.reduce((sum, driver) => sum + driver.cod_collection, 0) || 0;
+  const totalEarnings = dispatchResult?.dispatch_results?.reduce((sum, driver) => sum + driver.earnings, 0) || 0;
+  const totalCOD = dispatchResult?.dispatch_results?.reduce((sum, driver) => sum + driver.cod_collection, 0) || 0;
 
   return (
     <main className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
