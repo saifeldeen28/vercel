@@ -1,0 +1,26 @@
+name: Daily Reconcile
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every day
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call reconcile endpoint
+        run: |
+          response=$(curl --silent --show-error --fail \
+            --request GET \
+            --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --header "Content-Type: application/json" \
+            "${{ secrets.VERCEL_APP_URL }}/api/reconcile")
+
+          echo "$response"
+
+          # Fail the job if the API reported success:false
+          echo "$response" | grep -q '"success":true' || \
+            (echo "Reconcile endpoint reported failure" && exit 1)

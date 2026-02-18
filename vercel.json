@@ -7,11 +7,5 @@
       "source": "/api/:path*",
       "destination": "/api/:path*"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/reconcile",
-      "schedule": "0 2 * * *"
-    }
   ]
 }
