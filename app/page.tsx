@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { deliveryRates } from '@/lib/deliveryRates';
 import DriverCard from './components/DriverCard';
 import StatsCard from './components/StatsCard';
@@ -87,6 +87,7 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [ordersSummary, setOrdersSummary] = useState<OrdersSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const summaryCache = useRef<Record<string, OrdersSummary>>({});
 
   useEffect(() => {
     const datePattern = /^\d{2}-\d{2}-\d{4}$/;
@@ -95,17 +96,36 @@ export default function Home() {
       return;
     }
 
+    const isoDate = toISODate(deliveryDate);
+
+    // Return cached result immediately — no network call needed
+    if (summaryCache.current[isoDate]) {
+      setOrdersSummary(summaryCache.current[isoDate]);
+      return;
+    }
+
     let cancelled = false;
     setSummaryLoading(true);
     setOrdersSummary(null);
 
-    fetch(`/api/orders-summary?delivery_date=${toISODate(deliveryDate)}`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (!cancelled) setOrdersSummary(data); })
-      .catch(() => { if (!cancelled) setOrdersSummary(null); })
-      .finally(() => { if (!cancelled) setSummaryLoading(false); });
+    // Debounce: wait 300 ms after the last keystroke before fetching
+    const timer = setTimeout(() => {
+      fetch(`/api/orders-summary?delivery_date=${isoDate}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!cancelled && data) {
+            summaryCache.current[isoDate] = data;
+            setOrdersSummary(data);
+          }
+        })
+        .catch(() => { if (!cancelled) setOrdersSummary(null); })
+        .finally(() => { if (!cancelled) setSummaryLoading(false); });
+    }, 300);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [deliveryDate]);
 
   const handleDispatch = async (e: React.FormEvent) => {
