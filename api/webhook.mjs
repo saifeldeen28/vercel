@@ -113,11 +113,11 @@ export default async function handler(req, res) {
       if (item.properties?.length > 0) {
         item.properties.forEach(prop => {
           const propName = prop.name.toLowerCase();
-          // Filter logic: ignore appid, underscore prefixes, and cl_option
+          // Filter logic: ignore appid, underscore prefixes, and cl_option*
           if (
-            !propName.includes('appid') && 
-            !propName.startsWith('__') && 
-            propName !== 'cl_option'
+            !propName.includes('appid') &&
+            !propName.startsWith('__') &&
+            !propName.startsWith('cl_option')
           ) {
             productsSummary += `📝 _${prop.name.replace(/^_+/, '')}:_ ${prop.value}\n`;
           }
@@ -135,11 +135,27 @@ export default async function handler(req, res) {
       : 'لا يوجد عنوان';
 
     const del_area= req.body.shipping_lines?.[0]?.title || req.body.shipping_lines?.[0]?.code;//shipping_address?.city || billing_address?.city || null
+
+    const formatDeliveryTime = (value) => {
+      if (!value) return 'غير محدد';
+      const asNumber = Number(value);
+      if (!isNaN(asNumber) && asNumber > 0) {
+        const date = new Date(asNumber);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleTimeString('ar-EG', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Africa/Cairo'
+          });
+        }
+      }
+      return value;
+    };
     // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
         `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
         `🗓️ *يوم التوصيل:* ${dayName}\n` +
-        `⏰ *وقت التوصيل:* ${deliveryTimeAttribute?.value || 'غير محدد'}\n` +
+        `⏰ *وقت التوصيل:* ${formatDeliveryTime(deliveryTimeAttribute?.value)}\n` +
         `📍 *المنطقة:* ${del_area}\n` +
         `*العميل:* ${displayName}\n` +
         `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
@@ -252,15 +268,15 @@ export default async function handler(req, res) {
       await supabase.from('order_items').delete().eq('order_id', order[0].id);
 
       const items = line_items.map(item => {
-        // Build custom properties excluding cl_option
+        // Build custom properties excluding cl_option*
         const customProps = {};
         if (item.properties?.length > 0) {
           item.properties.forEach(prop => {
             const propName = prop.name.toLowerCase();
             if (
-              !propName.includes('appid') && 
-              !propName.startsWith('__') && 
-              propName !== 'cl_option'
+              !propName.includes('appid') &&
+              !propName.startsWith('__') &&
+              !propName.startsWith('cl_option')
             ) {
               customProps[prop.name] = prop.value;
             }
