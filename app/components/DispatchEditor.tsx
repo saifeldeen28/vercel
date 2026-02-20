@@ -225,95 +225,91 @@ export default function DispatchEditor({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Edit Dispatch Assignments</h2>
-          <p className="text-gray-600">
-            Click an area to select it, then click a driver to move it. Areas are moved as complete groups.
-          </p>
+        <div className="border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Edit Dispatch</h2>
+            <p className="text-xs text-gray-500">Click an area to select · click a driver to move</p>
+          </div>
+          {selectedArea !== null && (
+            <span className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded">
+              Area selected — click a driver to move
+            </span>
+          )}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {drivers.map((driver, driverIndex) => (
-              <div 
-                key={driver.driver_number} 
-                className={`border-2 rounded-lg p-4 ${
-                  selectedArea?.driverIndex === driverIndex 
-                    ? 'border-blue-500 bg-blue-50' 
+              <div
+                key={driver.driver_number}
+                className={`border-2 rounded-lg overflow-hidden ${
+                  selectedArea?.driverIndex === driverIndex
+                    ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 bg-white'
                 }`}
               >
-                {/* Driver Header */}
-                <div className="mb-4 pb-3 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {driver.driver}
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-600">Orders:</span>
-                      <span className="ml-1 font-medium text-gray-900">{driver.totalOrders}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Earn:</span>
-                      <span className="ml-1 font-medium text-green-700">{driver.totalEarnings.toFixed(0)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">COD:</span>
-                      <span className="ml-1 font-medium text-orange-700">{driver.totalCOD.toFixed(0)}</span>
+                {/* Driver Header — single compact row */}
+                <div
+                  className="px-3 py-2 bg-gray-50 border-b border-gray-200 cursor-pointer"
+                  onClick={() => {
+                    if (selectedArea !== null && selectedArea.driverIndex !== driverIndex) {
+                      moveArea(selectedArea.driverIndex, selectedArea.areaIndex, driverIndex);
+                      setSelectedArea(null);
+                    }
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-gray-900 truncate">{driver.driver}</span>
+                    <div className="flex items-center gap-2 text-xs shrink-0">
+                      <span className="font-medium text-gray-700">{driver.totalOrders} ord</span>
+                      <span className="text-green-700">{driver.totalEarnings.toFixed(0)}</span>
+                      <span className="text-orange-700">{driver.totalCOD.toFixed(0)} COD</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Area Groups */}
-                <div className="space-y-2">
+                {/* Area rows */}
+                <div className="divide-y divide-gray-100">
                   {driver.areaGroups.map((areaGroup, areaIndex) => (
                     <div
                       key={`${driverIndex}-${areaIndex}`}
-                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      className={`flex items-center justify-between px-3 py-1.5 cursor-pointer transition-colors ${
                         selectedArea?.driverIndex === driverIndex && selectedArea?.areaIndex === areaIndex
-                          ? 'border-blue-500 bg-blue-100 shadow-md'
-                          : 'border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50'
+                          ? 'bg-blue-100'
+                          : 'hover:bg-gray-50'
                       }`}
                       onClick={() => handleAreaClick(driverIndex, areaIndex)}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 text-sm mb-1">
-                            {areaGroup.area}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {areaGroup.orderCount} order{areaGroup.orderCount !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            splitArea(driverIndex, areaIndex);
-                          }}
-                          className="ml-2 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                          title="Split this area into 2 parts"
-                        >
-                          ✂️ Split
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-green-700">
-                          💵 {areaGroup.earnings.toFixed(0)} EGP
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold shrink-0 ${
+                          selectedArea?.driverIndex === driverIndex && selectedArea?.areaIndex === areaIndex
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {areaGroup.orderCount}
                         </span>
-                        <span className="text-orange-700">
-                          🔴 {areaGroup.codCollection.toFixed(0)} COD
-                        </span>
+                        <span className="text-sm text-gray-800 truncate">{areaGroup.area}</span>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          splitArea(driverIndex, areaIndex);
+                        }}
+                        className="ml-2 px-1.5 py-0.5 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-100 shrink-0"
+                        title="Split into 2 parts"
+                      >
+                        ✂
+                      </button>
                     </div>
                   ))}
-                  
+
                   {driver.areaGroups.length === 0 && (
-                    <div className="p-4 text-center text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
-                      No areas assigned
+                    <div className="px-3 py-3 text-center text-xs text-gray-400 border-dashed">
+                      No areas
                     </div>
                   )}
                 </div>
@@ -323,30 +319,19 @@ export default function DispatchEditor({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-6 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              {selectedArea !== null && (
-                <span className="text-blue-600 font-medium">
-                  ✓ Area selected - Click a driver to move it
-                </span>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={onCancel}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
+        <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
