@@ -223,12 +223,10 @@ export default function Home() {
                   Delivery Date
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   id="deliveryDate"
-                  value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
-                  placeholder="DD-MM-YYYY"
-                  pattern="\d{2}-\d{2}-\d{4}"
+                  value={toISODate(deliveryDate)}
+                  onChange={(e) => e.target.value && setDeliveryDate(toDisplayDate(e.target.value))}
                   className="input-field"
                   required
                 />
