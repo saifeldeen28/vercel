@@ -8,7 +8,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
   }
 
-  const { delivery_date } = req.query;
+  const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
+  const delivery_date = searchParams.get('delivery_date');
 
   if (!delivery_date) {
     return res.status(400).json({ error: 'Missing required query param: delivery_date' });
