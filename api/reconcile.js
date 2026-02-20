@@ -16,11 +16,27 @@ function deriveStatus(order) {
   return 'pending';
 }
 
+function formatDeliveryTime(value) {
+  if (!value) return 'غير محدد';
+  const asNumber = Number(value);
+  if (!isNaN(asNumber) && asNumber > 0) {
+    const date = new Date(asNumber);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('ar-EG', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Cairo'
+      });
+    }
+  }
+  return value;
+}
+
 function extractOrderData(order) {
   const {
     id, name, customer, shipping_address, billing_address,
     note, note_attributes, payment_gateway_names,
-    total_price, financial_status, fulfillment_status, shipping_lines
+    total_price, shipping_lines
   } = order;
 
   const customerAccountName = customer?.first_name && customer?.last_name
@@ -95,7 +111,11 @@ function extractOrderItems(order, dbOrderId) {
     if (item.properties?.length > 0) {
       item.properties.forEach(prop => {
         const propName = prop.name.toLowerCase();
-        if (!propName.includes('appid') && !propName.startsWith('__') && propName !== 'cl_option') {
+        if (
+          !propName.includes('appid') &&
+          !propName.startsWith('__') &&
+          !propName.startsWith('cl_option')
+        ) {
           customProps[prop.name] = prop.value;
         }
       });
@@ -111,9 +131,9 @@ function extractOrderItems(order, dbOrderId) {
   });
 }
 
-async function fetchShopifyOrders(updatedAtMin) {
+async function fetchShopifyOrders(createdAtMin) {
   const orders = [];
-  let url = `https://${STORE_DOMAIN}/admin/api/2024-01/orders.json?updated_at_min=${updatedAtMin}&limit=250&status=any`;
+  let url = `https://${STORE_DOMAIN}/admin/api/2024-01/orders.json?created_at_min=${createdAtMin}&limit=250&status=any`;
 
   while (url) {
     const res = await fetch(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } });
@@ -127,25 +147,122 @@ async function fetchShopifyOrders(updatedAtMin) {
   return orders;
 }
 
-async function sendWhatsApp(order, orderData) {
-  const codLine = orderData.is_cod ? `\n💰 *COD:* ${order.total_price} ${order.currency}` : '\n✅ مدفوع أونلاين';
-  const message =
-    `⚠️ *طلب مُسترجع - ${orderData.order_name}*\n` +
-    `📅 *التوصيل:* ${orderData.delivery_date_full}\n` +
-    `📍 *المنطقة:* ${orderData.delivery_area || 'غير محدد'}\n` +
-    `👤 *العميل:* ${orderData.shipping_name || orderData.customer_account_name || 'غير محدد'}\n` +
-    `📞 ${orderData.shipping_phone || orderData.customer_account_phone || 'غير مسجل'}` +
-    codLine;
+async function sendOrderWhatsApp(order, orderData) {
+  const { name, note_attributes, line_items, total_price, currency } = order;
 
-  const res = await fetch(
-    `https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId: CHAT_ID, message })
+  // Translate customer name to Arabic if it's in English
+  const addr = order.shipping_address || order.billing_address || order.customer || {};
+  let displayName = `${addr.first_name || ''} ${addr.last_name || ''}`.trim() || 'عميل غير معروف';
+  const isEnglish = /[a-zA-Z]/.test(displayName);
+  if (isEnglish && displayName) {
+    try {
+      const res = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ar&dt=t&q=${encodeURIComponent(displayName)}`
+      );
+      const data = await res.json();
+      if (data?.[0]?.[0]?.[0]) displayName = data[0][0][0];
+    } catch (e) {
+      console.error('Translation failed, using original name', e);
     }
-  );
-  if (!res.ok) throw new Error(`Green API responded with ${res.status}`);
+  }
+
+  // Delivery time attribute
+  const deliveryTimeAttribute = note_attributes?.find(attr => {
+    const key = attr.name.toLowerCase();
+    return key.includes('time') || key.includes('due');
+  });
+
+  // Build products summary
+  let productsSummary = '';
+  line_items.forEach((item, i) => {
+    productsSummary += `📦 *المنتج ${i + 1}:* ${item.title}\n`;
+    if (item.variant_title && item.variant_title !== 'Default Title') {
+      productsSummary += `🔹 النوع: ${item.variant_title}\n`;
+    }
+    productsSummary += `الكمية: ${item.quantity}\n`;
+    if (item.properties?.length > 0) {
+      item.properties.forEach(prop => {
+        const propName = prop.name.toLowerCase();
+        if (
+          !propName.includes('appid') &&
+          !propName.startsWith('__') &&
+          !propName.startsWith('cl_option')
+        ) {
+          productsSummary += `📝 _${prop.name.replace(/^_+/, '')}:_ ${prop.value}\n`;
+        }
+      });
+    }
+    productsSummary += '\n';
+  });
+
+  const totalDisplay = orderData.is_cod
+    ? `\n💰 *المبلغ المطلوب (COD):* ${total_price} ${currency}`
+    : '';
+
+  const fullDetailsCaption =
+    `⚠️ *طلب مُسترجع - ${name}* 🚀\n\n` +
+    `📅 *تاريخ التوصيل:* ${orderData.delivery_date_full}\n` +
+    `🗓️ *يوم التوصيل:* ${orderData.delivery_day_name}\n` +
+    `⏰ *وقت التوصيل:* ${formatDeliveryTime(deliveryTimeAttribute?.value)}\n` +
+    `📍 *المنطقة:* ${orderData.delivery_area || 'غير محدد'}\n` +
+    `*العميل:* ${displayName}\n` +
+    `*رقم الشحن:* ${orderData.shipping_phone || 'غير مسجل'}\n\n` +
+    `*المنتجات:*\n${productsSummary}` +
+    `*العنوان:* \n${orderData.delivery_full_address}\n\n` +
+    `*طريقة الدفع:* ${orderData.payment_method}${totalDisplay}\n` +
+    `*ملحوظة:* ${order.note || 'لا توجد ملاحظات'}`;
+
+  // Fetch unique product images
+  const uniqueItems = [];
+  const seenIds = new Set();
+  for (const item of line_items) {
+    if (!seenIds.has(item.product_id)) {
+      try {
+        const res = await fetch(
+          `https://${STORE_DOMAIN}/admin/api/2024-01/products/${item.product_id}.json?fields=image,title`,
+          { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }
+        );
+        const data = await res.json();
+        if (data.product?.image?.src) {
+          uniqueItems.push({ url: data.product.image.src, title: item.title, productId: item.product_id });
+        }
+      } catch (e) {
+        console.error('Failed to fetch image for product', item.product_id, e);
+      }
+      seenIds.add(item.product_id);
+    }
+  }
+
+  // Send WhatsApp — text only if no images, otherwise send images with caption on last one
+  if (uniqueItems.length === 0) {
+    const res = await fetch(
+      `https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
+      }
+    );
+    if (!res.ok) throw new Error(`Green API responded with ${res.status}`);
+  } else {
+    for (let i = 0; i < uniqueItems.length; i++) {
+      const isLast = i === uniqueItems.length - 1;
+      const res = await fetch(
+        `https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId: CHAT_ID,
+            urlFile: uniqueItems[i].url,
+            fileName: `${uniqueItems[i].title}.jpg`,
+            caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
+          })
+        }
+      );
+      if (!res.ok) throw new Error(`Green API responded with ${res.status}`);
+    }
+  }
 }
 
 // --- HANDLER ---
@@ -162,10 +279,10 @@ export default async function handler(req, res) {
 
   try {
     const now = new Date();
-    const updatedAtMin = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const createdAtMin = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-    // 1. Fetch all orders from Shopify updated in the last 24h
-    const shopifyOrders = await fetchShopifyOrders(updatedAtMin);
+    // 1. Fetch orders created in the last 24h (not updated_at — avoids pulling old orders)
+    const shopifyOrders = await fetchShopifyOrders(createdAtMin);
     console.log(`Reconcile: ${shopifyOrders.length} orders from Shopify`);
 
     if (shopifyOrders.length === 0) {
@@ -196,7 +313,7 @@ export default async function handler(req, res) {
 
       try {
         if (dbStatus === undefined) {
-          // --- NEW ORDER: full insert + WhatsApp ---
+          // --- NEW ORDER: full insert + full WhatsApp ---
           const orderData = extractOrderData(order);
 
           const { data: newOrder, error: insertError } = await supabase
@@ -214,7 +331,7 @@ export default async function handler(req, res) {
           }
 
           try {
-            await sendWhatsApp(order, orderData);
+            await sendOrderWhatsApp(order, orderData);
           } catch (waErr) {
             console.error(`WhatsApp failed for new order ${order.name}:`, waErr.message);
             errors.push({ order: order.name, step: 'whatsapp', error: waErr.message });
