@@ -169,7 +169,7 @@ async function sendOrderWhatsApp(order, orderData) {
   // Delivery time attribute
   const deliveryTimeAttribute = note_attributes?.find(attr => {
     const key = attr.name.toLowerCase();
-    return key.includes('time') || key.includes('due');
+    return key.includes('due time') || key === 'order due time';
   });
 
   // Build products summary

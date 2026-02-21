@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     });
     const deliveryTimeAttribute = note_attributes?.find(attr => {
       const key = attr.name.toLowerCase();
-      return key.includes('time') || key.includes('due');
+      return key.includes('due time') || key === 'order due time';
     });
 
     let dayName = "غير محدد";
