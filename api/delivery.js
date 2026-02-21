@@ -207,6 +207,20 @@ function dispatchOrders(ordersWithCoords, drivers_count) {
     zones = Array.from(buckets.values());
   }
 
+  // Capacity-balance: if total slot demand exceeds drivers_count, merge smallest zones
+  // until demand fits — this prevents large zones being squeezed to 1 slot by the
+  // proportional formula when there are exactly as many zones as drivers.
+  while (zones.length > 1) {
+    const sn = zones.map(z => Math.max(1, Math.ceil(z.orders.length / getZoneMax(z.areas))));
+    if (sn.reduce((s, n) => s + n, 0) <= drivers_count) break;
+    zones.sort((a, b) => a.orders.length - b.orders.length);
+    zones[0] = {
+      areas: [...zones[0].areas, ...zones[1].areas],
+      orders: [...zones[0].orders, ...zones[1].orders]
+    };
+    zones.splice(1, 1);
+  }
+
   // Step 3: allocate driver slots to zones
   const slotsNeeded = zones.map(z => Math.max(1, Math.ceil(z.orders.length / getZoneMax(z.areas))));
   const totalSlotsNeeded = slotsNeeded.reduce((s, n) => s + n, 0);
