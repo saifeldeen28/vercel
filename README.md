@@ -7,7 +7,7 @@ An admin dashboard for managing delivery driver assignments and WhatsApp dispatc
 ## ✨ Features
 
 - **Date-based dispatch** — enter a delivery date to instantly see order count, total earnings, and total COD
-- **ML-powered clustering** — driver assignments are optimized via a Hugging Face API that clusters orders geographically
+- **Geographic clustering** — driver assignments are computed locally using a Hierarchical Agglomerative Clustering (HAC) algorithm with Cairo area coordinates and macro-region groupings
 - **Editable assignments** — move or split delivery areas between drivers before sending
 - **WhatsApp notifications** — send formatted dispatch summaries to each driver via Green API
 - **Shopify webhook integration** — new, paid, fulfilled, and cancelled orders sync automatically to Supabase
@@ -45,7 +45,7 @@ lib/
 
 api/
   dispatch/
-    delivery.js           # POST /api/dispatch/delivery — ML clustering + driver assignment
+    delivery.js           # POST /api/dispatch/delivery — geographic HAC clustering + driver assignment
     drivers-messaging.js  # POST /api/dispatch/drivers-messaging — WhatsApp dispatch messages
     orders-summary.js     # GET  /api/dispatch/orders-summary — order count + earnings + COD
   webhooks/
@@ -120,7 +120,7 @@ For GitHub Actions, add `CRON_SECRET` and `VERCEL_APP_URL` as repository secrets
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `/api/dispatch/orders-summary` | Order count, total earnings, total COD for a date |
-| `POST` | `/api/dispatch/delivery` | Run ML clustering and return driver assignments |
+| `POST` | `/api/dispatch/delivery` | Run geographic HAC clustering and return driver assignments |
 | `POST` | `/api/dispatch/drivers-messaging` | Send WhatsApp messages to all drivers |
 
 ### Shopify Webhooks
