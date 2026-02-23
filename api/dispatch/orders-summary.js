@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getDeliveryRate } from '../lib/deliveryRates.js';
+import { getDeliveryRate } from '../../lib/deliveryRates.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 

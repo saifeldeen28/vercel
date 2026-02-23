@@ -1,4 +1,4 @@
-import { getDeliveryRate } from '../lib/deliveryRates.js';
+import { getDeliveryRate } from '../../lib/deliveryRates.js';
 
 // --- GREEN API CONFIG ---
 const GREEN_API = {

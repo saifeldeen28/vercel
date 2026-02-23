@@ -110,7 +110,7 @@ export default function Home() {
 
     // Debounce: wait 300 ms after the last keystroke before fetching
     const timer = setTimeout(() => {
-      fetch(`/api/orders-summary?delivery_date=${isoDate}`)
+      fetch(`/api/dispatch/orders-summary?delivery_date=${isoDate}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (!cancelled && data) {
@@ -137,7 +137,7 @@ export default function Home() {
     setMessagingError('');
 
     try {
-      const response = await fetch('/api/delivery', {
+      const response = await fetch('/api/dispatch/delivery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ export default function Home() {
     setMessagingResult(null);
 
     try {
-      const response = await fetch('/api/drivers-messaging', {
+      const response = await fetch('/api/dispatch/drivers-messaging', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

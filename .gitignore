@@ -34,3 +34,6 @@ next-env.d.ts
 
 CLAUDE.MD
 .github\copilot-instructions.md
+
+# temp files
+tmpclaude*

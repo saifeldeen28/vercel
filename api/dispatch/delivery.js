@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { deliveryRates, getDeliveryRate } from '../lib/deliveryRates.js';
+import { deliveryRates, getDeliveryRate } from '../../lib/deliveryRates.js';
 
 // Cairo coordinates for areas (approximate centers)
 const areaCoordinates = {
