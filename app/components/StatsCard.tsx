@@ -6,26 +6,34 @@ interface StatsCardProps {
 }
 
 export default function StatsCard({ title, value, icon, color = 'blue' }: StatsCardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    orange: 'bg-orange-50 text-orange-600',
+  const gradients = {
+    blue: 'from-blue-50 to-blue-100 border-blue-200',
+    green: 'from-emerald-50 to-emerald-100 border-emerald-200',
+    purple: 'from-purple-50 to-purple-100 border-purple-200',
+    orange: 'from-orange-50 to-orange-100 border-orange-200',
+  };
+
+  const textColors = {
+    blue: 'text-blue-700',
+    green: 'text-emerald-700',
+    purple: 'text-purple-700',
+    orange: 'text-orange-700',
+  };
+
+  const valueColors = {
+    blue: 'text-blue-900',
+    green: 'text-emerald-900',
+    purple: 'text-purple-900',
+    orange: 'text-orange-900',
   };
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-        {icon && (
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-            <span className="text-2xl">{icon}</span>
-          </div>
-        )}
-      </div>
+    <div className={`bg-gradient-to-br ${gradients[color]} rounded-xl border shadow-sm p-5 relative overflow-hidden`}>
+      {icon && (
+        <span className="absolute right-4 top-3 text-4xl opacity-20 select-none">{icon}</span>
+      )}
+      <p className={`text-sm font-medium ${textColors[color]} mb-1`}>{title}</p>
+      <p className={`text-2xl font-bold ${valueColors[color]}`}>{value}</p>
     </div>
   );
 }

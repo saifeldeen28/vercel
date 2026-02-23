@@ -228,13 +228,18 @@ export default function Home() {
     <main className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Delivery Dispatch System</h1>
-          <p className="text-gray-600">Assign drivers and manage deliveries efficiently</p>
+        <div className="mb-8 flex items-center gap-4">
+          <div className="w-1.5 h-12 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full" />
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              Delivery Dispatch System
+            </h1>
+            <p className="text-gray-500 mt-0.5">Assign drivers and manage deliveries efficiently</p>
+          </div>
         </div>
 
         {/* Dispatch Form */}
-        <div className="card mb-8">
+        <div className="card mb-8 border-t-4 border-t-blue-500">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Create Dispatch</h2>
           <form onSubmit={handleDispatch} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -270,16 +275,22 @@ export default function Home() {
 
             {/* Date Summary */}
             {(summaryLoading || ordersSummary) && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
                 {summaryLoading ? (
-                  <p className="text-sm text-blue-600">Loading orders for this date...</p>
+                  <p className="text-sm text-blue-600 flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading orders for this date...
+                  </p>
                 ) : ordersSummary && ordersSummary.orders_count === 0 ? (
                   <p className="text-sm text-gray-500">No orders found for this date.</p>
                 ) : ordersSummary ? (
-                  <div className="flex flex-wrap gap-4 text-sm font-medium text-blue-800">
-                    <span>📦 {ordersSummary.orders_count} orders</span>
-                    <span>💰 {ordersSummary.total_earnings.toLocaleString()} EGP earnings</span>
-                    <span>💵 {ordersSummary.total_cod.toLocaleString()} EGP COD</span>
+                  <div className="flex flex-wrap gap-3 text-sm font-semibold text-blue-800">
+                    <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm border border-blue-100">📦 {ordersSummary.orders_count} orders</span>
+                    <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm border border-blue-100">💰 {ordersSummary.total_earnings.toLocaleString()} EGP</span>
+                    <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm border border-blue-100">💵 {ordersSummary.total_cod.toLocaleString()} EGP COD</span>
                   </div>
                 ) : null}
               </div>
@@ -305,8 +316,8 @@ export default function Home() {
           </form>
 
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-800 text-sm">{error}</p>
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 border-l-4 border-l-red-500 rounded-lg">
+              <p className="text-red-800 text-sm font-medium">{error}</p>
             </div>
           )}
         </div>
@@ -389,8 +400,8 @@ export default function Home() {
               </div>
 
               {messagingError && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-800 text-sm">{messagingError}</p>
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 border-l-4 border-l-red-500 rounded-lg">
+                  <p className="text-red-800 text-sm font-medium">{messagingError}</p>
                 </div>
               )}
 
@@ -447,10 +458,14 @@ export default function Home() {
 
         {/* Empty State */}
         {!dispatchResult && !loading && (
-          <div className="card text-center py-12">
-            <div className="text-6xl mb-4">🚚</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Dispatch Created Yet</h3>
-            <p className="text-gray-600">Fill in the form above to create your first dispatch</p>
+          <div className="card text-center py-16">
+            <div className="relative inline-block mb-5">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-5xl">🚚</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Dispatch Created Yet</h3>
+            <p className="text-gray-500">Fill in the form above to create your first dispatch</p>
           </div>
         )}
 

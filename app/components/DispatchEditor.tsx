@@ -225,16 +225,16 @@ export default function DispatchEditor({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-2 overflow-y-auto backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-gray-900 to-gray-700 px-5 py-3 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Edit Dispatch</h2>
-            <p className="text-xs text-gray-500">Click an area to select · click a driver to move</p>
+            <h2 className="text-base font-bold text-white">Edit Dispatch</h2>
+            <p className="text-xs text-gray-400">Click an area to select · click a driver to move</p>
           </div>
           {selectedArea !== null && (
-            <span className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded">
+            <span className="text-xs text-blue-300 font-medium bg-blue-900/40 border border-blue-700 px-3 py-1 rounded-full">
               Area selected — click a driver to move
             </span>
           )}
@@ -319,16 +319,16 @@ export default function DispatchEditor({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 flex items-center justify-end gap-2">
+        <div className="border-t border-gray-200 px-5 py-3 bg-gradient-to-r from-gray-900 to-gray-700 flex items-center justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            className="px-4 py-1.5 text-sm border border-gray-500 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors font-semibold shadow-sm"
           >
             Save Changes
           </button>
