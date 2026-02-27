@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     const isCOD = paymentMethod.toLowerCase().includes('cash') || 
                   paymentMethod.toLowerCase().includes('manual') || 
                   paymentMethod.includes('الدفع عند الاستلام');
-    const totalDisplay = `\n💰 *المبلغ المطلوب (COD):* ${total_price} ${currency}` : "";
+    const totalDisplay = `\n💰 *المبلغ المطلوب :* ${total_price} ${currency}` : "";
 
     // 2. Format Products Summary (Excluding cl_option)
     let productsSummary = "";
