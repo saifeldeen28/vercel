@@ -195,9 +195,7 @@ async function sendOrderWhatsApp(order, orderData) {
     productsSummary += '\n';
   });
 
-  const totalDisplay = orderData.is_cod
-    ? `\n💰 *المبلغ المطلوب (COD):* ${total_price} ${currency}`
-    : '';
+  const totalDisplay = `\n💰 *المبلغ المطلوب:* ${total_price} ${currency}`;
 
   const fullDetailsCaption =
     `⚠️ *طلب مُسترجع - ${name}* 🚀\n\n` +
