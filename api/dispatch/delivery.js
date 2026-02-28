@@ -56,7 +56,7 @@ const areaCoordinates = {
 const GIZA_MAX          = 5;    // max orders per driver in Giza zone
 const CAIRO_MAX         = 7;    // max orders per driver in Cairo zone
 const DRIVER_MIN        = 2;    // min orders per driver
-const INCOMPAT_THRESHOLD = 0.40; // Euclidean lat/lng distance beyond which two areas must NOT share a driver
+const INCOMPAT_THRESHOLD = 0.25; // Euclidean lat/lng distance beyond which two areas must NOT share a driver
 
 // Map every area to one of 4 macro-regions
 const AREA_REGION = {
@@ -105,25 +105,36 @@ function zonesCompatible(areasA, areasB) {
   return true;
 }
 
-// Single-linkage (minimum) distance between two area sets
-function interZoneDist(areasA, areasB) {
-  let min = Infinity;
-  for (const a of areasA) {
-    const coordA = areaCoordinates[a];
-    if (!coordA) continue;
-    for (const b of areasB) {
-      const coordB = areaCoordinates[b];
-      if (!coordB) continue;
-      const d = euclideanDist(coordA, coordB);
-      if (d < min) min = d;
-    }
-  }
-  return min;
+// Centroid of a set of areas (average coordinates)
+function zoneCentroid(areas) {
+  const coords = areas.map(a => areaCoordinates[a]).filter(Boolean);
+  if (!coords.length) return { lat: 30.0444, lng: 31.2357 };
+  return {
+    lat: coords.reduce((s, c) => s + c.lat, 0) / coords.length,
+    lng: coords.reduce((s, c) => s + c.lng, 0) / coords.length
+  };
 }
 
 // Max orders for a zone: 5 if all areas are Giza, otherwise 7
 function getZoneMax(areas) {
   return areas.every(a => AREA_REGION[a] === 'GIZA') ? GIZA_MAX : CAIRO_MAX;
+}
+
+// Sort orders within a zone by delivery area (groups same-area orders together).
+// Areas are ordered west→east by longitude so contiguous chunks stay geographic.
+function sortOrdersByArea(orders) {
+  const groups = new Map();
+  for (const o of orders) {
+    const area = o.originalOrder.delivery_area;
+    if (!groups.has(area)) groups.set(area, []);
+    groups.get(area).push(o);
+  }
+  const sortedAreas = [...groups.keys()].sort((a, b) => {
+    const ca = areaCoordinates[a] || { lng: 31.2357 };
+    const cb = areaCoordinates[b] || { lng: 31.2357 };
+    return ca.lng - cb.lng;
+  });
+  return sortedAreas.flatMap(a => groups.get(a));
 }
 
 /**
@@ -165,7 +176,7 @@ function dispatchOrders(ordersWithCoords, drivers_count) {
       for (let i = 0; i < zones.length; i++) {
         for (let j = i + 1; j < zones.length; j++) {
           if (!zonesCompatible(zones[i].areas, zones[j].areas)) continue;
-          const d = interZoneDist(zones[i].areas, zones[j].areas);
+          const d = euclideanDist(zoneCentroid(zones[i].areas), zoneCentroid(zones[j].areas));
           if (d < bestDist) { bestDist = d; bestI = i; bestJ = j; }
         }
       }
@@ -177,14 +188,20 @@ function dispatchOrders(ordersWithCoords, drivers_count) {
       zones.splice(bestJ, 1);
     }
 
-    // If still more zones than drivers (all incompatible), force-merge smallest by order count
+    // If still more zones than drivers (all incompatible), force-merge closest pair by centroid
     while (zones.length > drivers_count) {
-      zones.sort((a, b) => a.orders.length - b.orders.length);
-      zones[0] = {
-        areas: [...zones[0].areas, ...zones[1].areas],
-        orders: [...zones[0].orders, ...zones[1].orders]
+      let fI = 0, fJ = 1, fDist = Infinity;
+      for (let i = 0; i < zones.length; i++) {
+        for (let j = i + 1; j < zones.length; j++) {
+          const d = euclideanDist(zoneCentroid(zones[i].areas), zoneCentroid(zones[j].areas));
+          if (d < fDist) { fDist = d; fI = i; fJ = j; }
+        }
+      }
+      zones[fI] = {
+        areas: [...zones[fI].areas, ...zones[fJ].areas],
+        orders: [...zones[fI].orders, ...zones[fJ].orders]
       };
-      zones.splice(1, 1);
+      zones.splice(fJ, 1);
     }
 
   } else {
@@ -207,18 +224,25 @@ function dispatchOrders(ordersWithCoords, drivers_count) {
     zones = Array.from(buckets.values());
   }
 
-  // Capacity-balance: if total slot demand exceeds drivers_count, merge smallest zones
-  // until demand fits — this prevents large zones being squeezed to 1 slot by the
+  // Capacity-balance: if total slot demand exceeds drivers_count, merge geographically closest
+  // zones until demand fits — prevents large zones being squeezed to 1 slot by the
   // proportional formula when there are exactly as many zones as drivers.
   while (zones.length > 1) {
     const sn = zones.map(z => Math.max(1, Math.ceil(z.orders.length / getZoneMax(z.areas))));
     if (sn.reduce((s, n) => s + n, 0) <= drivers_count) break;
-    zones.sort((a, b) => a.orders.length - b.orders.length);
-    zones[0] = {
-      areas: [...zones[0].areas, ...zones[1].areas],
-      orders: [...zones[0].orders, ...zones[1].orders]
+    // Find geographically closest pair of zones
+    let cI = 0, cJ = 1, cDist = Infinity;
+    for (let i = 0; i < zones.length; i++) {
+      for (let j = i + 1; j < zones.length; j++) {
+        const d = euclideanDist(zoneCentroid(zones[i].areas), zoneCentroid(zones[j].areas));
+        if (d < cDist) { cDist = d; cI = i; cJ = j; }
+      }
+    }
+    zones[cI] = {
+      areas: [...zones[cI].areas, ...zones[cJ].areas],
+      orders: [...zones[cI].orders, ...zones[cJ].orders]
     };
-    zones.splice(1, 1);
+    zones.splice(cJ, 1);
   }
 
   // Step 3: allocate driver slots to zones
@@ -244,7 +268,7 @@ function dispatchOrders(ordersWithCoords, drivers_count) {
   // Step 4: split each zone's orders across its allocated slots, enforcing DRIVER_MIN
   const finalSlots = []; // { orders: [] }
   for (let zi = 0; zi < zones.length; zi++) {
-    const zoneOrders = zones[zi].orders;
+    const zoneOrders = sortOrdersByArea(zones[zi].orders);
     let n = slotAlloc[zi];
 
     if (zoneOrders.length === 0) continue;
