@@ -1,8 +1,8 @@
 name: Daily Reconcile
 
 on:
-  schedule:
-    - cron: '0 2 * * *'   # 02:00 UTC every day
+  # schedule:
+  #   - cron: '0 2 * * *'   # 02:00 UTC every day
   workflow_dispatch:        # allow manual trigger from GitHub UI
 
 jobs:
