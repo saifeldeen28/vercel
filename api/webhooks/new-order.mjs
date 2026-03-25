@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       });
     }
 
-  // --- CONFIGURATION ---
+    // --- CONFIGURATION ---
   const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID;
   const TOKEN = process.env.GREEN_API_TOKEN;
   const CHAT_ID = process.env.GREEN_API_GROUP_CHAT_ID;
@@ -364,6 +364,16 @@ export default async function handler(req, res) {
       error: error.message,
       whatsappSent: whatsappSuccess,
       databaseSaved: databaseSuccess
+    });
+  }
+  
+  } catch (outerError) {
+    // Catch any errors from HMAC verification or body reading
+    console.error('Webhook processing error:', outerError);
+    return res.status(500).json({
+      success: false,
+      error: 'Webhook processing failed',
+      details: outerError.message
     });
   }
 }
