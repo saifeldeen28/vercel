@@ -107,6 +107,7 @@ Copy `.env.example` to `.env.local` and fill in the values.
 | `GREEN_API_ORDER_CHAT_ID` | WhatsApp chat ID for customer notifications |
 | `SHOPIFY_ACCESS_TOKEN` | Shopify Admin API token (for fetching product images) |
 | `SHOPIFY_STORE_DOMAIN` | e.g. `your-store.myshopify.com` |
+| `SHOPIFY_WEBHOOK_SECRET` | Shopify webhook secret for HMAC verification (see setup below) |
 | `CRON_SECRET` | Shared secret protecting the `/api/reconcile` endpoint |
 
 For GitHub Actions, add `CRON_SECRET` and `VERCEL_APP_URL` as repository secrets.
@@ -137,6 +138,49 @@ For GitHub Actions, add `CRON_SECRET` and `VERCEL_APP_URL` as repository secrets
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `/api/reconcile` | Fetch last 24h Shopify orders and sync any that were missed |
+
+---
+
+## 🔐 Shopify Webhook Setup
+
+All webhook endpoints are protected with HMAC-SHA256 signature verification to ensure only Shopify can trigger them.
+
+### 1. Configure webhooks in Shopify Admin
+
+1. Go to **Settings → Notifications → Webhooks**
+2. Create or edit each webhook:
+   - **Order creation**: `https://your-domain.vercel.app/api/webhooks/new-order`
+   - **Order payment**: `https://your-domain.vercel.app/api/webhooks/order-paid`
+   - **Order fulfillment**: `https://your-domain.vercel.app/api/webhooks/order-fulfilled`
+   - **Order cancellation**: `https://your-domain.vercel.app/api/webhooks/order-cancelled`
+3. Set webhook format to **JSON**
+4. Set webhook API version to **2024-01** or later
+
+### 2. Get your webhook secret
+
+1. In Shopify Admin, click on any configured webhook
+2. Click **Show** next to "Webhook signing secret"
+3. Copy the secret value (format: `shpwhk_...`)
+
+### 3. Add to environment variables
+
+Add the secret to your `.env.local`:
+```bash
+SHOPIFY_WEBHOOK_SECRET=shpwhk_your_actual_secret_here
+```
+
+**Important**: All webhooks configured in your Shopify store share the same signing secret. You only need to configure it once.
+
+### 4. Deploy and test
+
+1. Deploy your changes to Vercel
+2. Trigger a test order in Shopify
+3. Check Shopify's webhook logs (Settings → Notifications → Webhooks → click webhook → Recent deliveries) to verify successful delivery (HTTP 200)
+
+If you see `401 Unauthorized` errors, double-check that:
+- `SHOPIFY_WEBHOOK_SECRET` is correctly set in your Vercel environment variables
+- The secret matches the one shown in Shopify admin
+- The webhook is sending the `X-Shopify-Hmac-SHA256` header
 
 ---
 

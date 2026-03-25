@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
+import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
+  }
+
+  // Verify webhook authenticity
+  const verification = verifyShopifyWebhook(req);
+  if (!verification.valid) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Unauthorized' 
+    });
   }
 
   try {
