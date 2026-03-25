@@ -13,20 +13,39 @@ export const config = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  // Get raw body for HMAC verification
-  const rawBody = await getRawBody(req);
-  
-  // Verify webhook authenticity
-  const verification = verifyShopifyWebhook(req, rawBody);
-  if (!verification.valid) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Unauthorized' 
-    });
-  }
+  try {
+    // Get raw body for HMAC verification
+    console.log('new-order webhook: Reading raw body...');
+    const rawBody = await getRawBody(req);
+    console.log('new-order webhook: Raw body received, length:', rawBody.length);
+    
+    // Verify webhook authenticity
+    console.log('new-order webhook: Verifying HMAC...');
+    const verification = verifyShopifyWebhook(req, rawBody);
+    
+    if (!verification.valid) {
+      console.error('new-order webhook: HMAC verification failed:', verification.error);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Unauthorized',
+        details: verification.error
+      });
+    }
+    
+    console.log('new-order webhook: HMAC verified successfully');
 
-  // Parse body for processing
-  const body = JSON.parse(rawBody);
+    // Parse body for processing
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+      console.log('new-order webhook: Parsed order ID:', body.id);
+    } catch (parseError) {
+      console.error('new-order webhook: JSON parse failed:', parseError);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid JSON body'
+      });
+    }
 
   // --- CONFIGURATION ---
   const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID;
