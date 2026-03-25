@@ -1,19 +1,32 @@
 import { createClient } from '@supabase/supabase-js'
-import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js'
+import { verifyShopifyWebhook, getRawBody } from '../../lib/shopifyWebhookAuth.js'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+
+// Disable body parsing to get raw body for HMAC verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
+  // Get raw body for HMAC verification
+  const rawBody = await getRawBody(req);
+  
   // Verify webhook authenticity
-  const verification = verifyShopifyWebhook(req);
+  const verification = verifyShopifyWebhook(req, rawBody);
   if (!verification.valid) {
     return res.status(401).json({ 
       success: false, 
       error: 'Unauthorized' 
     });
   }
+
+  // Parse body for processing
+  const body = JSON.parse(rawBody);
 
   // --- CONFIGURATION ---
   const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID;
@@ -31,7 +44,7 @@ export default async function handler(req, res) {
       id, name, customer, shipping_address, billing_address, 
       note, note_attributes, line_items, payment_gateway_names,
       total_price, currency 
-    } = req.body;
+    } = body;
 
     // 1. Extract all name variants
     const getDisplayName = async () => {
@@ -144,7 +157,7 @@ export default async function handler(req, res) {
       ? `${address.address1 || ''} ${address.address2 || ''}, ${address.city || ''}, ${address.province || ''}`.trim()
       : 'لا يوجد عنوان';
 
-    const del_area= req.body.shipping_lines?.[0]?.title || req.body.shipping_lines?.[0]?.code;//shipping_address?.city || billing_address?.city || null
+    const del_area= body.shipping_lines?.[0]?.title || body.shipping_lines?.[0]?.code;//shipping_address?.city || billing_address?.city || null
 
     const formatDeliveryTime = (value) => {
       if (!value) return 'غير محدد';

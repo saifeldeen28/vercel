@@ -1,15 +1,25 @@
 import { createClient } from '@supabase/supabase-js'
-import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js'
+import { verifyShopifyWebhook, getRawBody } from '../../lib/shopifyWebhookAuth.js'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+
+// Disable body parsing to get raw body for HMAC verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
+  // Get raw body for HMAC verification
+  const rawBody = await getRawBody(req);
+
   // Verify webhook authenticity
-  const verification = verifyShopifyWebhook(req);
+  const verification = verifyShopifyWebhook(req, rawBody);
   if (!verification.valid) {
     return res.status(401).json({ 
       success: false, 
@@ -17,8 +27,10 @@ export default async function handler(req, res) {
     });
   }
 
+  // Parse body for processing
+  const { id } = JSON.parse(rawBody);
+
   try {
-    const { id } = req.body;
 
     if (!id) {
       return res.status(400).json({ 
