@@ -108,9 +108,52 @@ Copy `.env.example` to `.env.local` and fill in the values.
 | `SHOPIFY_ACCESS_TOKEN` | Shopify Admin API token (for fetching product images) |
 | `SHOPIFY_STORE_DOMAIN` | e.g. `your-store.myshopify.com` |
 | `SHOPIFY_WEBHOOK_SECRET` | Shopify webhook secret for HMAC verification (see setup below) |
+| `NEXT_PUBLIC_ADMIN_API_KEY` | Admin API key for dispatch endpoints (see setup below) |
 | `CRON_SECRET` | Shared secret protecting the `/api/reconcile` endpoint |
 
 For GitHub Actions, add `CRON_SECRET` and `VERCEL_APP_URL` as repository secrets.
+
+---
+
+## 🔐 Admin API Key Setup
+
+The dispatch endpoints (`/api/dispatch/*`) are protected with API key authentication to prevent unauthorized access to customer data.
+
+### 1. Generate a secure API key
+
+On Linux/Mac:
+```bash
+openssl rand -base64 32
+```
+
+On Windows (PowerShell):
+```powershell
+-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+```
+
+Or use any random password generator (32+ characters recommended).
+
+### 2. Add to environment variables
+
+Add to your `.env.local`:
+```bash
+NEXT_PUBLIC_ADMIN_API_KEY=your_generated_key_here
+```
+
+**Important**: The key must be prefixed with `NEXT_PUBLIC_` to be accessible in the frontend.
+
+### 3. Deploy to Vercel
+
+Add the same key to your Vercel environment variables:
+1. Go to your Vercel project → **Settings** → **Environment Variables**
+2. Add `NEXT_PUBLIC_ADMIN_API_KEY` with your generated key
+3. Redeploy your application
+
+### Security Notes
+
+- **Key visibility**: The API key will be visible in browser DevTools (Network tab). This is acceptable for single-admin use.
+- **Key rotation**: If the key is compromised, generate a new one and update both `.env.local` and Vercel.
+- **Never commit**: The `.env.local` file is gitignored. Never commit the actual key to version control.
 
 ---
 

@@ -73,6 +73,15 @@ function toDisplayDate(yyyymmdd: string): string {
   return `${d}-${m}-${y}`;
 }
 
+// Helper function to get auth headers
+function getAuthHeaders(): HeadersInit {
+  const apiKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY;
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  };
+}
+
 export default function Home() {
   const [deliveryDate, setDeliveryDate] = useState<string>(
     toDisplayDate(new Date().toISOString().split('T')[0])
@@ -110,7 +119,9 @@ export default function Home() {
 
     // Debounce: wait 300 ms after the last keystroke before fetching
     const timer = setTimeout(() => {
-      fetch(`/api/dispatch/orders-summary?delivery_date=${isoDate}`)
+      fetch(`/api/dispatch/orders-summary?delivery_date=${isoDate}`, {
+        headers: getAuthHeaders()
+      })
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (!cancelled && data) {
@@ -139,9 +150,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/dispatch/delivery', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           delivery_date: toISODate(deliveryDate),
           drivers_count: driversCount,
@@ -175,9 +184,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/dispatch/drivers-messaging', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           delivery_date: toISODate(deliveryDate),
           dispatch_results: dispatchResult.dispatch_results,

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { deliveryRates, getDeliveryRate } from '../../lib/deliveryRates.js';
+import { verifyApiKey } from '../../lib/apiKeyAuth.js';
 
 // Cairo coordinates for areas (approximate centers)
 const areaCoordinates = {
@@ -336,6 +337,15 @@ export default async function handler(req, res) {
   // Only accept POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  }
+
+  // Verify API key
+  const verification = verifyApiKey(req);
+  if (!verification.valid) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Unauthorized' 
+    });
   }
 
   try {
