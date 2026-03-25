@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js'
 import { buffer } from 'micro'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
@@ -8,7 +7,7 @@ const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID;
 const TOKEN = process.env.GREEN_API_TOKEN;
 const CHAT_ID = process.env.GREEN_API_GROUP_CHAT_ID;
 
-// Disable body parsing to get raw body for HMAC verification
+// Disable body parsing to use micro's buffer utility
 export const config = {
   api: {
     bodyParser: false,
@@ -20,31 +19,23 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  // Get raw body for HMAC verification using micro's buffer
-  const buf = await buffer(req);
-  const rawBody = buf.toString('utf8');
+  try {
+    // Get raw body using micro's buffer
+    const buf = await buffer(req);
+    const rawBody = buf.toString('utf8');
 
-  // Verify webhook authenticity
-  const verification = verifyShopifyWebhook(req, rawBody);
-  if (!verification.valid) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Unauthorized' 
-    });
-  }
+    // Parse body for processing
+    const { id, name } = JSON.parse(rawBody);
 
-  // Parse body for processing
-  const { id, name } = JSON.parse(rawBody);
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Order ID is required' });
+    }
 
-  if (!id) {
-    return res.status(400).json({ success: false, error: 'Order ID is required' });
-  }
-
-  const shopifyId = id.toString();
-  const orderName = name || shopifyId;
-  let databaseSuccess = false;
-  let whatsappSuccess = false;
-  const errors = [];
+    const shopifyId = id.toString();
+    const orderName = name || shopifyId;
+    let databaseSuccess = false;
+    let whatsappSuccess = false;
+    const errors = [];
 
   // 1. Delete from database (independent)
   try {

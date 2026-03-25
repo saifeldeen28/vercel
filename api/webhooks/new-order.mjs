@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js';
 import { buffer } from 'micro';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 
-// Disable body parsing to get raw body for HMAC verification
+// Disable body parsing to use micro's buffer utility
 export const config = {
   api: {
     bodyParser: false,
@@ -15,32 +14,15 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
   try {
-    // Get raw body for HMAC verification using micro's buffer (Vercel recommended)
-    console.log('new-order webhook: Reading raw body with micro buffer...');
+    // Get raw body using micro's buffer (Vercel recommended)
     const buf = await buffer(req);
     const rawBody = buf.toString('utf8');
-    console.log('new-order webhook: Raw body received, length:', rawBody.length);
     
-    // Verify webhook authenticity
-    console.log('new-order webhook: Verifying HMAC...');
-    const verification = verifyShopifyWebhook(req, rawBody);
-    
-    if (!verification.valid) {
-      console.error('new-order webhook: HMAC verification failed:', verification.error);
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Unauthorized',
-        details: verification.error
-      });
-    }
-    
-    console.log('new-order webhook: HMAC verified successfully');
-
     // Parse body for processing
     let body;
     try {
       body = JSON.parse(rawBody);
-      console.log('new-order webhook: Parsed order ID:', body.id);
+      console.log('new-order webhook: Processing order ID:', body.id);
     } catch (parseError) {
       console.error('new-order webhook: JSON parse failed:', parseError);
       return res.status(400).json({
