@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { verifyShopifyWebhook, getRawBody } from '../../lib/shopifyWebhookAuth.js'
+import { verifyShopifyWebhook } from '../../lib/shopifyWebhookAuth.js'
+import { buffer } from 'micro'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 
@@ -15,8 +16,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  // Get raw body for HMAC verification
-  const rawBody = await getRawBody(req);
+  // Get raw body for HMAC verification using micro's buffer
+  const buf = await buffer(req);
+  const rawBody = buf.toString('utf8');
 
   // Verify webhook authenticity
   const verification = verifyShopifyWebhook(req, rawBody);
