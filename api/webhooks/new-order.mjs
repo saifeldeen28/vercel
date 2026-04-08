@@ -177,6 +177,9 @@ export default async function handler(req, res) {
       }
       return value;
     };
+    const senderPhoneForMessage = billingPhone || customerAccountPhone || shippingPhone || 'غير مسجل';
+    const receiverPhoneForMessage = shippingPhone || senderPhoneForMessage || 'غير مسجل';
+
     // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
         `📅 *تاريخ التوصيل:* ${deliveryDateFormatted}\n` +
@@ -184,9 +187,10 @@ export default async function handler(req, res) {
         `⏰ *وقت التوصيل:* ${formatDeliveryTime(deliveryTimeAttribute?.value)}\n` +
         `📍 *المنطقة:* ${del_area}\n` +
         `*العميل:* ${displayName}\n` +
-        `*رقم الشحن:* ${shipping_address?.phone || 'غير مسجل'}\n\n` +
+        `*رقم المرسل:* ${senderPhoneForMessage}\n` +
         `*المنتجات:*\n${productsSummary}` +
         `*العنوان:* \n${fullAddress}\n\n` +
+        `*رقم المستلم:* ${receiverPhoneForMessage}\n\n` +
         `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n` + 
         `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
 
