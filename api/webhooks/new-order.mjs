@@ -187,11 +187,11 @@ export default async function handler(req, res) {
         `⏰ *وقت التوصيل:* ${formatDeliveryTime(deliveryTimeAttribute?.value)}\n` +
         `📍 *المنطقة:* ${del_area}\n` +
         `*العميل:* ${displayName}\n` +
-        `*رقم المرسل:* ${senderPhoneForMessage}\n` +
+        `*رقم المرسل:* ${senderPhoneForMessage}\n\n` +
         `*المنتجات:*\n${productsSummary}` +
         `*العنوان:* \n${fullAddress}\n\n` +
         `*رقم المستلم:* ${receiverPhoneForMessage}\n\n` +
-        `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n` + 
+        `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n\n` + 
         `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
 
     // 5. Collect Unique Product Images
