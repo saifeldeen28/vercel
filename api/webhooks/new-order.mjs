@@ -200,7 +200,7 @@ export default async function handler(req, res) {
     for (const item of line_items) {
       if (!seenIds.has(item.product_id)) {
         try {
-          const res = await fetch(`https://${STORE_DOMAIN}/admin/api/2024-01/products/${item.product_id}.json?fields=image,title`, {
+          const res = await fetch(`https://${STORE_DOMAIN}/admin/api/2025-04/products/${item.product_id}.json?fields=image,title`, {
             headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN }
           });
           const data = await res.json();

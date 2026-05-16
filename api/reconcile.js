@@ -133,7 +133,7 @@ function extractOrderItems(order, dbOrderId) {
 
 async function fetchShopifyOrders(createdAtMin) {
   const orders = [];
-  let url = `https://${STORE_DOMAIN}/admin/api/2024-01/orders.json?created_at_min=${createdAtMin}&limit=250&status=any`;
+  let url = `https://${STORE_DOMAIN}/admin/api/2025-04/orders.json?created_at_min=${createdAtMin}&limit=250&status=any`;
 
   while (url) {
     const res = await fetch(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } });
@@ -217,7 +217,7 @@ async function sendOrderWhatsApp(order, orderData) {
     if (!seenIds.has(item.product_id)) {
       try {
         const res = await fetch(
-          `https://${STORE_DOMAIN}/admin/api/2024-01/products/${item.product_id}.json?fields=image,title`,
+          `https://${STORE_DOMAIN}/admin/api/2025-04/products/${item.product_id}.json?fields=image,title`,
           { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }
         );
         const data = await res.json();
