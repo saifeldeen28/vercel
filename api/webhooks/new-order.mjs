@@ -236,18 +236,18 @@ export default async function handler(req, res) {
           body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
         });
       } else {
+        const CAPTION_LIMIT = 1024;
+        const lastCaptionFits = fullDetailsCaption.length <= CAPTION_LIMIT;
         for (let i = 0; i < uniqueItems.length; i++) {
           const isLast = (i === uniqueItems.length - 1);
           const safeFileName = uniqueItems[i].title.replace(/[^\w؀-ۿ\s.-]/g, '_').trim() + '.jpg';
+          const caption = isLast && lastCaptionFits
+            ? fullDetailsCaption
+            : `📸 المنتج: ${uniqueItems[i].title}`;
           const gRes = await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: CHAT_ID,
-              urlFile: uniqueItems[i].url,
-              fileName: safeFileName,
-              caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
-            })
+            body: JSON.stringify({ chatId: CHAT_ID, urlFile: uniqueItems[i].url, fileName: safeFileName, caption })
           });
           if (!gRes.ok) {
             const gErr = await gRes.text();
@@ -256,6 +256,14 @@ export default async function handler(req, res) {
             const gData = await gRes.json().catch(() => ({}));
             console.log(`sendFileByUrl response for product ${i + 1}:`, JSON.stringify(gData));
           }
+        }
+        // Caption was too long — send full details as a separate text message after the images
+        if (!lastCaptionFits) {
+          await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendMessage/${TOKEN}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId: CHAT_ID, message: fullDetailsCaption })
+          });
         }
       }
       whatsappSuccess = true;
