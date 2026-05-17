@@ -87,4 +87,13 @@ export default async function handler(req, res) {
     orderName,
     errors: errors.length > 0 ? errors : undefined
   });
+
+  } catch (outerError) {
+    console.error('Order cancellation webhook error:', outerError);
+    return res.status(500).json({
+      success: false,
+      error: 'Webhook processing failed',
+      details: outerError.message
+    });
+  }
 }

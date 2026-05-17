@@ -200,23 +200,32 @@ export default async function handler(req, res) {
     for (const item of line_items) {
       if (!seenIds.has(item.product_id)) {
         try {
-          const res = await fetch(`https://${STORE_DOMAIN}/admin/api/2025-04/products/${item.product_id}.json?fields=image,title`, {
+          const imgRes = await fetch(`https://${STORE_DOMAIN}/admin/api/2026-04/products/${item.product_id}.json?fields=image,images,title`, {
             headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN }
           });
-          const data = await res.json();
-          if (data.product?.image?.src) {
-            uniqueItems.push({ 
-              url: data.product.image.src, 
-              title: item.title,
-              productId: item.product_id
-            });
+          if (!imgRes.ok) {
+            const errText = await imgRes.text();
+            console.error(`Shopify image fetch HTTP ${imgRes.status} for product ${item.product_id}: ${errText.substring(0, 300)}`);
+          } else {
+            const data = await imgRes.json();
+            const imgSrc = data.product?.image?.src || data.product?.images?.[0]?.src;
+            if (imgSrc) {
+              uniqueItems.push({
+                url: imgSrc,
+                title: item.title,
+                productId: item.product_id
+              });
+            } else {
+              console.warn(`No image returned for product ${item.product_id}. image=${JSON.stringify(data.product?.image)} images_count=${data.product?.images?.length ?? 'n/a'}`);
+            }
           }
-        } catch (e) { 
-          console.error("Fetch error for product image", e); 
+        } catch (e) {
+          console.error(`Fetch error for product image ${item.product_id}:`, e.message);
         }
         seenIds.add(item.product_id);
       }
     }
+    console.log(`Order ${name}: found ${uniqueItems.length} product image(s) from ${seenIds.size} unique product(s)`);
 
     // 6. Send WhatsApp Messages (Independent of database)
     try {
@@ -229,16 +238,24 @@ export default async function handler(req, res) {
       } else {
         for (let i = 0; i < uniqueItems.length; i++) {
           const isLast = (i === uniqueItems.length - 1);
-          await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
+          const safeFileName = uniqueItems[i].title.replace(/[^\w؀-ۿ\s.-]/g, '_').trim() + '.jpg';
+          const gRes = await fetch(`https://api.green-api.com/waInstance${INSTANCE_ID}/sendFileByUrl/${TOKEN}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chatId: CHAT_ID,
               urlFile: uniqueItems[i].url,
-              fileName: `${uniqueItems[i].title}.jpg`,
+              fileName: safeFileName,
               caption: isLast ? fullDetailsCaption : `📸 المنتج: ${uniqueItems[i].title}`
             })
           });
+          if (!gRes.ok) {
+            const gErr = await gRes.text();
+            console.error(`Green API sendFileByUrl HTTP ${gRes.status} for product ${uniqueItems[i].productId}: ${gErr.substring(0, 200)}`);
+          } else {
+            const gData = await gRes.json().catch(() => ({}));
+            console.log(`sendFileByUrl response for product ${i + 1}:`, JSON.stringify(gData));
+          }
         }
       }
       whatsappSuccess = true;
