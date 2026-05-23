@@ -177,8 +177,15 @@ export default async function handler(req, res) {
       }
       return value;
     };
-    const senderPhoneForMessage = billingPhone || customerAccountPhone || shippingPhone || 'غير مسجل';
-    const receiverPhoneForMessage = shippingPhone || senderPhoneForMessage || 'غير مسجل';
+    const addCountryCode = (phone) => {
+      if (!phone) return 'غير مسجل';
+      const stripped = phone.replace(/\s+/g, '');
+      if (!stripped) return 'غير مسجل';
+      if (stripped.startsWith('+') || stripped.startsWith('00')) return stripped;
+      return '+2' + stripped;
+    };
+    const senderPhoneForMessage = addCountryCode(billingPhone || customerAccountPhone || shippingPhone);
+    const receiverPhoneForMessage = addCountryCode(shippingPhone || billingPhone || customerAccountPhone);
 
     // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
