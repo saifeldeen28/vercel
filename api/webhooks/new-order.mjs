@@ -185,7 +185,7 @@ export default async function handler(req, res) {
       return '+2' + stripped;
     };
     const senderPhoneForMessage = addCountryCode(billingPhone || customerAccountPhone || shippingPhone);
-    const receiverPhoneForMessage = addCountryCode(shippingPhone || billingPhone || customerAccountPhone);
+    const receiverPhoneForMessage = addCountryCode(shippingPhone  || customerAccountPhone || billingPhone);
 
     // 4. Build WhatsApp caption
     const fullDetailsCaption = `*طلب جديد - ${name}* 🚀\n\n` +
