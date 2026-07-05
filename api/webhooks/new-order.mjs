@@ -197,6 +197,7 @@ export default async function handler(req, res) {
         `*رقم المرسل:* ${senderPhoneForMessage}\n\n` +
         `*المنتجات:*\n${productsSummary}` +
         `*العنوان:* \n${fullAddress}\n\n` +
+        `*اسم المستلم:* ${shippingName || displayName}\n` +
         `*رقم المستلم:* ${receiverPhoneForMessage}\n\n` +
         `*طريقة الدفع:* ${paymentMethod}${totalDisplay}\n\n` + 
         `*ملحوظة:* ${note || 'لا توجد ملاحظات'}`;
