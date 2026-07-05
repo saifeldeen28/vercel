@@ -75,17 +75,9 @@ export default async function handler(req, res) {
     };
 
     // Extract all possible names
-    const customerAccountName = customer?.first_name && customer?.last_name 
-      ? `${customer.first_name} ${customer.last_name}`.trim() 
-      : null;
-    
-    const shippingName = shipping_address?.first_name && shipping_address?.last_name
-      ? `${shipping_address.first_name} ${shipping_address.last_name}`.trim()
-      : null;
-    
-    const billingName = billing_address?.first_name && billing_address?.last_name
-      ? `${billing_address.first_name} ${billing_address.last_name}`.trim()
-      : null;
+    const customerAccountName = `${customer?.first_name || ''} ${customer?.last_name || ''}`.trim() || null;
+    const shippingName = `${shipping_address?.first_name || ''} ${shipping_address?.last_name || ''}`.trim() || null;
+    const billingName = `${billing_address?.first_name || ''} ${billing_address?.last_name || ''}`.trim() || null;
 
     // Extract all possible phone numbers
     const customerAccountPhone = customer?.phone || null;
