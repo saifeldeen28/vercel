@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
     // 1. Extract all name variants
     const getDisplayName = async () => {
-      const addr = shipping_address || billing_address || customer || {};
+      const addr = billing_address || shipping_address || customer || {};
       let first = addr.first_name || '';
       let last = addr.last_name || '';
       const fullName = `${first} ${last}`.trim();
@@ -185,7 +185,7 @@ export default async function handler(req, res) {
         `🗓️ *يوم التوصيل:* ${dayName}\n` +
         `⏰ *وقت التوصيل:* ${formatDeliveryTime(deliveryTimeAttribute?.value)}\n` +
         `📍 *المنطقة:* ${del_area}\n` +
-        `*العميل:* ${displayName}\n` +
+        `*اسم المرسل:* ${displayName}\n` +
         `*رقم المرسل:* ${senderPhoneForMessage}\n\n` +
         `*المنتجات:*\n${productsSummary}` +
         `*العنوان:* \n${fullAddress}\n\n` +
